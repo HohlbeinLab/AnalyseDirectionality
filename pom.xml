@@ -95,6 +95,11 @@
 			<id>scijava.public</id>
 			<url>https://maven.scijava.org/content/groups/public</url>
 		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+
 	</repositories>
 
 	<dependencies>
@@ -111,10 +116,11 @@
             <artifactId>fiji-lib</artifactId>
         </dependency>
 		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>Directionality_</artifactId>
-			<version>2.3.0</version>
+			<groupId>com.github.Biomedical-Imaging-Group</groupId>
+			<artifactId>OrientationJ</artifactId>
+			<version>ce968334bcd09ce70f54df74e9f7a2fbe5c79cca</version>
 		</dependency>
+
 	</dependencies>
 
 </project>

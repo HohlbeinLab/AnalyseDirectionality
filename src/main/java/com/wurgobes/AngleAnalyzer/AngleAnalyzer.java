@@ -22,59 +22,108 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
 
-import net.imagej.Dataset;
-import net.imagej.DatasetService;
+
+import ij.ImagePlus;
+import ij.Macro;
+import ij.WindowManager;
 import net.imagej.ImageJ;
-
-import fiji.analyze.directionality.Directionality_;
-
 import net.imglib2.type.numeric.RealType;
-import org.scijava.ItemIO;
 import org.scijava.command.Command;
 import org.scijava.log.LogService;
-import org.scijava.plugin.*;
+import org.scijava.plugin.Parameter;
+import org.scijava.plugin.Plugin;
 
 
-@Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer<Analyze Angles")
+@Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer>Analyze Angles")
 public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
     // The services are passed through from ImageJ automatically
-    @Parameter
-    private DatasetService datasetService;
 
     @Parameter
     private LogService logService;
 
-    @Parameter(type = ItemIO.OUTPUT)
-    private Dataset dataset;
 
-    @Parameter(min = "0")
-    private float angleStart = 0;
 
-    @Parameter(max = "180")
-    private float angleEnd = 180;
+    /** The ImagePlus this plugin operates on. */
+    //@Parameter(type= ItemIO.INPUT)
+    protected ImagePlus imp;
 
-    @Parameter(min = "1")
-    private int sobelSize = 5;
 
-    // Debug parameters
-    private static boolean runningFromIDE = false;
- 
+    /* private variables */
+
+    private static String args = "";
+
+    private boolean headless = false;
+
+    private static boolean debugging = false;
+
+    /* Directionality stuff */
+
+
+    private void setup_image() {
+        // null if no image is found
+        imp = WindowManager.getCurrentImage();
+
+        if(args.equals(""))
+            args = Macro.getOptions();
+        if(args != null && !args.equals(""))
+            headless = true;
+
+        if(imp == null) {
+            imp = new ij.io.Opener().openImage(args);
+            imp.show();
+        }
+
+        if(imp == null){
+            logService.error("Expected Image");
+            throw new IllegalArgumentException();
+        }
+    }
+
 
     @Override
     public void run() {
-        System.out.println("test");
-	}
+        logService.info("Angle Analyzer 0.1");
+
+        setup_image();
+
+        // threshold remove bottom 5%
+
+        util.Mask(imp);
+        /*
+
+        String options = "tensor=4.0 gradient=0 radian=on vectorgrid=20 vectorscale=300.0 vectortype=3 vectoroverlay=on vectortable=on";
+        logService.info("Running OrientationJ using: " + options);
+        if(debugging){
+            logService.info("Running from IDE");
+            OrientationJ_Vector_Field vector_field = new OrientationJ_Vector_Field();
+            //Macro.setOptions(options);
+            vector_field.run(options);
+        } else {
+            IJ.run("OrientationJ Vector Field", options);
+        }
+
+        //This is bad and i should feel bad
+        ResultsTable resultsTable = ResultsTable.getResultsTable("OJ-Table-Vector-Field-");
+
+        System.out.println(resultsTable.getColumnHeadings());
+
+
+         */
+
+	} // substack 32-40
 
     // Only run from the IDE
-    public static void main(final String... args) throws Exception {
-        runningFromIDE = true; //this is really dumb
-
-
+    public static void main(final String... arguments) {
+        debugging = true;
         final ImageJ ij = new ImageJ();
-        ij.launch(args);
 
+        ij.launch(arguments);
+
+        //args = "D:\\Data\\Microscopy\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_36_crop.tif";
+        args = "E:\\Data\\Microscopy\\Unilever\\airyscan_showcase.tif";
         ij.command().run(AngleAnalyzer.class, true);
     }
 }
+
 
