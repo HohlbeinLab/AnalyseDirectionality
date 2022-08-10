@@ -2,10 +2,10 @@ package com.wurgobes.AngleAnalyzer;
 
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.plugin.Thresholder;
+import ij.plugin.filter.RankFilters;
+import ij.process.AutoThresholder;
 import ij.process.ImageProcessor;
-import net.imglib2.histogram.Histogram1d;
-import net.imglib2.histogram.Integer1dBinMapper;
+
 
 public class util {
 
@@ -64,38 +64,35 @@ public class util {
      * Takes an imageplus and masks away certain areas according to the imput parameters
      * NOTE: MODIFIES imp IN PLACE
      * */
-    public static void Mask(ImagePlus imp){
+    public static void MakeMask(ImagePlus imp){
         if(imp.isStack()){
             ImageStack imageStack = imp.getStack();
             int slices = imageStack.getSize();
             for(int n = 1; n <= slices; n++){
-                ImageProcessor imageProcessor = imageStack.getProcessor(n).duplicate();
-                processSlice(imageProcessor);
+                processSlice(imageStack.getProcessor(n));
             }
         } else {
-            processSlice(imp.getProcessor().duplicate());
+            processSlice(imp.getProcessor());
         }
     }
 
     private static void processSlice(ImageProcessor imageProcessor) {
-        ImagePlus temp = new ImagePlus("temp", imageProcessor);
-        temp.show();
+        // min of 10px, max off 15px
+        // min = 1, max = 2
+        RankFilters rankFilters = new RankFilters();
+        rankFilters.rank(imageProcessor, 10, 1);
+        rankFilters.rank(imageProcessor, 15, 2);
 
-        // Create a histogram out of the cropped image
-        Histogram1d<T> hist = new Histogram1d<>(distanceCenter, new Integer1dBinMapper<>(0, 256, false));
 
-        // Give us a min and max to mask the image with
-        int minThreshold = getThresholdBin(0.99_86f, hist.toLongArray());
-        int maxThreshold = 256;
-
-        imageProcessor.setThreshold(threshold, Math.pow(2, imageProcessor.getBitDepth()), ImageProcessor.BLACK_AND_WHITE_LUT);
-        (new Thresholder()).run("mask");
-        // threshold
+        ImagePlus mask = new ImagePlus("temp", imageProcessor);
 
 
 
-        // binary - close
-        // iter 10 count 2
+        imageProcessor.setAutoThreshold(AutoThresholder.Method.Huang, true, ImageProcessor.BLACK_AND_WHITE_LUT);
+
+        mask.show();
+
+
     }
 
 }

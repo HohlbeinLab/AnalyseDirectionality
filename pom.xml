@@ -116,9 +116,9 @@
             <artifactId>fiji-lib</artifactId>
         </dependency>
 		<dependency>
-			<groupId>com.github.Biomedical-Imaging-Group</groupId>
+			<groupId>com.github.DrNjitram</groupId>
 			<artifactId>OrientationJ</artifactId>
-			<version>ce968334bcd09ce70f54df74e9f7a2fbe5c79cca</version>
+			<version>8b80d2428f056dc2d11d1ccc7f4d99919016876d</version>
 		</dependency>
 
 	</dependencies>

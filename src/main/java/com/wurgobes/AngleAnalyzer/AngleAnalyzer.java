@@ -23,15 +23,18 @@ SOFTWARE.
  */
 
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.Macro;
 import ij.WindowManager;
+import ij.measure.ResultsTable;
 import net.imagej.ImageJ;
 import net.imglib2.type.numeric.RealType;
 import org.scijava.command.Command;
 import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+import OrientationJ.OrientationJ_Vector_Field;
 
 
 @Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer>Analyze Angles")
@@ -89,14 +92,17 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
         // threshold remove bottom 5%
 
-        util.Mask(imp);
-        /*
+        ImagePlus mask = imp.duplicate();
+        util.MakeMask(mask);
 
-        String options = "tensor=4.0 gradient=0 radian=on vectorgrid=20 vectorscale=300.0 vectortype=3 vectoroverlay=on vectortable=on";
+
+        String options = "tensor=1.0 gradient=0 radian=on vectorgrid=10 vectorscale=300.0 vectortype=3 vectoroverlay=false vectortable=on";
         logService.info("Running OrientationJ using: " + options);
         if(debugging){
             logService.info("Running from IDE");
+            WindowManager.setTempCurrentImage(imp);
             OrientationJ_Vector_Field vector_field = new OrientationJ_Vector_Field();
+
             //Macro.setOptions(options);
             vector_field.run(options);
         } else {
@@ -109,7 +115,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         System.out.println(resultsTable.getColumnHeadings());
 
 
-         */
+
 
 	} // substack 32-40
 
@@ -121,7 +127,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         ij.launch(arguments);
 
         //args = "D:\\Data\\Microscopy\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_36_crop.tif";
-        args = "E:\\Data\\Microscopy\\Unilever\\airyscan_showcase.tif";
+        args = "E:\\Data\\Microscopy\\RCM\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_xx.tif";
         ij.command().run(AngleAnalyzer.class, true);
     }
 }
