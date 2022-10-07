@@ -23,21 +23,21 @@ SOFTWARE.
  */
 
 
-import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.Macro;
 import ij.WindowManager;
-import ij.measure.ResultsTable;
+import ij.process.ImageProcessor;
 import net.imagej.ImageJ;
 import net.imglib2.type.numeric.RealType;
+import org.scijava.Priority;
 import org.scijava.command.Command;
 import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
-import OrientationJ.OrientationJ_Vector_Field;
 
 
-@Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer>Analyze Angles")
+@Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer>Analyze Angles", priority = Priority.HIGH)
 public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
     // The services are passed through from ImageJ automatically
@@ -67,12 +67,11 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         // null if no image is found
         imp = WindowManager.getCurrentImage();
 
-        if(args.equals(""))
-            args = Macro.getOptions();
-        if(args != null && !args.equals(""))
-            headless = true;
+        if(args == null) args = "";
+        if(args.equals("")) args = Macro.getOptions();
+        if(args != null && !args.equals("")) headless = true;
 
-        if(imp == null) {
+        if(imp == null  && !args.equals("")) {
             imp = new ij.io.Opener().openImage(args);
             imp.show();
         }
@@ -90,6 +89,28 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
         setup_image();
 
+        if(imp.isStack()){
+            ImageStack input = imp.getStack();
+            ImageStack imageStack = new ImageStack();
+
+            for(int i=0; i < input.getSize(); i++){
+                ImageProcessor allpeaks = util.obtainDistancesFFT(imp, 0.005f);
+                imageStack.addSlice(allpeaks);
+            }
+            ImagePlus result = new ImagePlus("FFT", imageStack);
+            result.show();
+        } else {
+            ImageProcessor allpeaks = util.obtainDistancesFFT(imp, 0.005f);
+            ImagePlus result = new ImagePlus("FFT", allpeaks);
+            result.show();
+        }
+
+
+
+
+
+
+        /*
         // threshold remove bottom 5%
 
         ImagePlus mask = imp.duplicate();
@@ -116,18 +137,20 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
 
 
+         */
 
+        System.out.println("done");
 	} // substack 32-40
 
     // Only run from the IDE
     public static void main(final String... arguments) {
         debugging = true;
-        final ImageJ ij = new ImageJ();
+        ImageJ ij = new ImageJ();
+        ij.ui().showUI();
 
-        ij.launch(arguments);
 
         //args = "D:\\Data\\Microscopy\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_36_crop.tif";
-        args = "E:\\Data\\Microscopy\\RCM\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_xx.tif";
+        args = "C:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\test.tif";
         ij.command().run(AngleAnalyzer.class, true);
     }
 }

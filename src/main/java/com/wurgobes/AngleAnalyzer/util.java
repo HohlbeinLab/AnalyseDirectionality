@@ -2,9 +2,18 @@ package com.wurgobes.AngleAnalyzer;
 
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.*;
 import ij.plugin.filter.RankFilters;
 import ij.process.AutoThresholder;
+import ij.process.FHT;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import net.imglib2.Point;
+import net.imglib2.util.Pair;
+import net.imglib2.util.ValuePair;
+
+import java.util.*;
+
 
 
 public class util {
@@ -95,4 +104,111 @@ public class util {
 
     }
 
+    public static ImageProcessor obtainDistancesFFT(ImagePlus imp, float angleprecision) {
+        List<Pair<Double, List<Pair<Double, Double>>>> results =  new ArrayList<>();
+
+
+        final FHT fht = new FHT();
+
+        double radius = Math.min(imp.getHeight(), imp.getWidth())/2.;
+        Point center = new Point(imp.getWidth()/2, imp.getHeight()/2);
+        int sidelength = (int) (radius * Math.sqrt(2));
+        double dx = imp.getCalibration().pixelHeight;
+        final double[] freq = getX(sidelength, dx);
+        int start = 0;
+        int end = 2;
+        int length = Math.abs(end-start);
+
+        float[][] temp = new float[(int) Math.ceil(length/angleprecision)+1][freq.length];
+
+        int index = 0;
+        for(double angle = 0; angle <= 2; angle += angleprecision){
+            RotatedRectRoi roi = getRoi(center, sidelength, angle);
+            imp.setRoi(roi);
+
+            float[] data = getProfile(imp, roi);
+
+            float[] magnitudes = fht.fourier1D(data, FHT.HAMMING);
+            temp[index++] = magnitudes;
+            //Plot plot = new Plot("FFT", "x", "y");
+            //plot.add("line", freq, magnitudes);
+            //plot.show();
+
+            List<Pair<Double, Double>> peaks = filterpeaks(toDouble(magnitudes), freq, 0.5, 0.25, 4, 0.7, dx);
+            if (peaks.size() > 0)
+                results.add(new ValuePair<>(angle+(Math.PI/2 - 1), peaks));
+        }
+        imp.setRoi(getRoi(center, sidelength, 1)); // Clear ugly line
+
+        for(Pair<Double, List<Pair<Double, Double>>> angle: results){
+            if(angle.getB().size() > 1) {
+                System.out.printf("Angle: %.2f deg (%.2f rad)%n", Math.toDegrees(angle.getA()), angle.getA());
+                List<Pair<Double, Double>> peaks = angle.getB();
+                peaks.sort(Comparator.comparingDouble(Pair::getB));
+                Collections.reverse(peaks);
+
+                for (Pair<Double, Double> peak : peaks.subList(0, 2))
+                    System.out.printf("Found peak at %.2f nm with confidence %.3f (%.2f Hz)%n", 1000 / peak.getA(), peak.getB(), peak.getA());
+            }
+        }
+
+
+        //return results;
+        return new FloatProcessor(temp);
+    }
+
+    /**
+    Temporary solution because the RotatedRect Profileplot support is only in the daily built atm
+     **/
+    private static float[] getProfile(ImagePlus imp, RotatedRectRoi roi){
+        double[] p = roi.getParams();
+        Roi line = new Line(p[0], p[1], p[2], p[3]);
+        line.setStrokeWidth(p[4]);
+        line.setImage(imp);
+        imp.setRoi(line, false);
+
+        ProfilePlot profilePlot = new ProfilePlot(imp);
+        return toFloat(profilePlot.getProfile());
+    }
+
+    public static float[] toFloat(double[] v){
+        float[] result = new float[v.length];
+        for(int i = 0; i < v.length; i++) result[i] = (float) v[i];
+        return result;
+    }
+
+    public static double[] toDouble(float[] v){
+        double[] result = new double[v.length];
+        Arrays.setAll(result, i -> v[i]);
+        return result;
+    }
+
+    public static double[] getX(int length, double dx){
+        double[] x = new double[length];
+        Arrays.setAll(x, i -> i/(2*length*dx));
+        return x;
+    }
+
+    public static List<Pair<Double, Double>> filterpeaks(double[] magnitude, double[] freq, double min_freq, double freq_window, double conf_threshold, double conf_cutoff,double dx){
+        List<Pair<Double, Double>> peaks = new ArrayList<>();
+        if(freq_window > min_freq) min_freq = freq_window;
+        final int di = (int) (freq_window*2*freq.length*dx);
+        for(int i = (int) (min_freq*2*freq.length*dx); i < magnitude.length; i++){
+
+            double window_mean = Arrays.stream(Arrays.copyOfRange(magnitude, i-di, i+di)).average().orElse(Double.NaN);
+            double confidence = magnitude[i] / (conf_threshold * window_mean);
+            if(confidence > conf_cutoff)
+                peaks.add(new ValuePair<>(freq[i], confidence));
+        }
+        return peaks;
+    }
+
+    public static RotatedRectRoi getRoi(Point center, double sidelength, double angle){
+        int x0 = (int) (center.getIntPosition(0) + Math.cos((angle) * Math.PI) * sidelength/2);
+        int y0 = (int) (center.getIntPosition(1) + Math.sin((angle) * Math.PI) * sidelength/2);
+        int x1 = (int) (center.getIntPosition(0) + Math.cos((1+angle) * Math.PI) * sidelength/2);
+        int y1 = (int) (center.getIntPosition(1) + Math.sin((1+angle) * Math.PI) * sidelength/2);
+
+        return new RotatedRectRoi(x0, y0, x1, y1, sidelength);
+    }
 }

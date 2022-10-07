@@ -120,6 +120,11 @@
 			<artifactId>OrientationJ</artifactId>
 			<version>8b80d2428f056dc2d11d1ccc7f4d99919016876d</version>
 		</dependency>
+		<dependency>
+			<groupId>com.github.DrNjitram</groupId>
+			<artifactId>FFTWindow</artifactId>
+			<version>b162364f36a026e87362430a96935bf95f17ddbb</version>
+		</dependency>
 
 	</dependencies>
 
