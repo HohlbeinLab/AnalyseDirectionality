@@ -1,5 +1,6 @@
 package com.wurgobes.AngleAnalyzer;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.*;
@@ -114,7 +115,7 @@ public class util {
         Point center = new Point(imp.getWidth()/2, imp.getHeight()/2);
         int sidelength = (int) (radius * Math.sqrt(2));
         double dx = imp.getCalibration().pixelHeight;
-        final double[] freq = getX(sidelength, dx);
+        final double[] freq = getX(lowerpower(sidelength), dx);
         int start = 0;
         int end = 2;
         int length = Math.abs(end-start);
@@ -122,8 +123,10 @@ public class util {
         float[][] temp = new float[(int) Math.ceil(length/angleprecision)+1][freq.length];
 
         int index = 0;
-        for(double angle = 0; angle <= 2; angle += angleprecision){
+
+        for(double angle = start; angle <= end; angle += angleprecision){
             RotatedRectRoi roi = getRoi(center, sidelength, angle);
+
             imp.setRoi(roi);
 
             float[] data = getProfile(imp, roi);
@@ -134,21 +137,23 @@ public class util {
             //plot.add("line", freq, magnitudes);
             //plot.show();
 
-            List<Pair<Double, Double>> peaks = filterpeaks(toDouble(magnitudes), freq, 0.5, 0.25, 4, 0.7, dx);
+            List<Pair<Double, Double>> peaks = filterpeaks(toDouble(magnitudes), freq, 0.5, 0.25, 1, 0.7, dx);
             if (peaks.size() > 0)
                 results.add(new ValuePair<>(angle+(Math.PI/2 - 1), peaks));
         }
-        imp.setRoi(getRoi(center, sidelength, 1)); // Clear ugly line
+        imp.setRoi(getRoi(center, sidelength, end)); // Clear ugly line
 
         for(Pair<Double, List<Pair<Double, Double>>> angle: results){
             if(angle.getB().size() > 1) {
-                System.out.printf("Angle: %.2f deg (%.2f rad)%n", Math.toDegrees(angle.getA()), angle.getA());
+                IJ.log(String.format("Angle: %.2f deg (%.2f rad)", Math.toDegrees(angle.getA()), angle.getA()));
+
                 List<Pair<Double, Double>> peaks = angle.getB();
                 peaks.sort(Comparator.comparingDouble(Pair::getB));
                 Collections.reverse(peaks);
 
+
                 for (Pair<Double, Double> peak : peaks.subList(0, 2))
-                    System.out.printf("Found peak at %.2f nm with confidence %.3f (%.2f Hz)%n", 1000 / peak.getA(), peak.getB(), peak.getA());
+                    IJ.log(String.format("Found peak at %.2f nm with confidence %.3f (%.2f Hz)", 1000 / peak.getA(), peak.getB(), peak.getA()));
             }
         }
 
@@ -210,5 +215,18 @@ public class util {
         int y1 = (int) (center.getIntPosition(1) + Math.sin((1+angle) * Math.PI) * sidelength/2);
 
         return new RotatedRectRoi(x0, y0, x1, y1, sidelength);
+    }
+
+    private static int lowerpower(int n){
+        int power = 1;
+        while(n > power){
+            power *= 2;
+        }
+        return power/2;
+    }
+
+    public static ImagePlus applyWindow(ImagePlus imp, int x, int y, int size_x, int size_y){
+        ImagePlus copy = imp.duplicate();
+        return copy.crop(new Roi[]{new Roi(x, y, size_x, size_y)})[0];
     }
 }
