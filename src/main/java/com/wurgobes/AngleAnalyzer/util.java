@@ -1,6 +1,6 @@
 package com.wurgobes.AngleAnalyzer;
 
-import ij.IJ;
+
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.*;
@@ -13,8 +13,12 @@ import net.imglib2.Point;
 import net.imglib2.util.Pair;
 import net.imglib2.util.ValuePair;
 
+import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.nio.file.Path;
 import java.util.*;
-
+import java.util.List;
 
 
 public class util {
@@ -23,8 +27,6 @@ public class util {
         switch(bitdepth){
             case 8:
                 return toInt((byte[]) input);
-            case 16:
-                return (int[]) input;
             case 32:
                 return toInt((long[]) input);
             default:
@@ -106,8 +108,6 @@ public class util {
     }
 
     public static ImageProcessor obtainDistancesFFT(ImagePlus imp, float angleprecision) {
-        List<Pair<Double, List<Pair<Double, Double>>>> results =  new ArrayList<>();
-
 
         final FHT fht = new FHT();
 
@@ -116,6 +116,8 @@ public class util {
         int sidelength = (int) (radius * Math.sqrt(2));
         double dx = imp.getCalibration().pixelHeight;
         final double[] freq = getX(lowerpower(sidelength), dx);
+
+        // in pi radians
         int start = 0;
         int end = 2;
         int length = Math.abs(end-start);
@@ -133,30 +135,10 @@ public class util {
 
             float[] magnitudes = fht.fourier1D(data, FHT.HAMMING);
             temp[index++] = magnitudes;
-            //Plot plot = new Plot("FFT", "x", "y");
-            //plot.add("line", freq, magnitudes);
-            //plot.show();
 
-            List<Pair<Double, Double>> peaks = filterpeaks(toDouble(magnitudes), freq, 0.5, 0.25, 1, 0.7, dx);
-            if (peaks.size() > 0)
-                results.add(new ValuePair<>(angle+(Math.PI/2 - 1), peaks));
+
         }
-        imp.setRoi(getRoi(center, sidelength, end)); // Clear ugly line
-
-        for(Pair<Double, List<Pair<Double, Double>>> angle: results){
-            if(angle.getB().size() > 1) {
-                IJ.log(String.format("Angle: %.2f deg (%.2f rad)", Math.toDegrees(angle.getA()), angle.getA()));
-
-                List<Pair<Double, Double>> peaks = angle.getB();
-                peaks.sort(Comparator.comparingDouble(Pair::getB));
-                Collections.reverse(peaks);
-
-
-                for (Pair<Double, Double> peak : peaks.subList(0, 2))
-                    IJ.log(String.format("Found peak at %.2f nm with confidence %.3f (%.2f Hz)", 1000 / peak.getA(), peak.getB(), peak.getA()));
-            }
-        }
-
+        imp.setRoi(getRoi(center, sidelength, end));
 
         //return results;
         return new FloatProcessor(temp);
@@ -209,12 +191,21 @@ public class util {
     }
 
     public static RotatedRectRoi getRoi(Point center, double sidelength, double angle){
-        int x0 = (int) (center.getIntPosition(0) + Math.cos((angle) * Math.PI) * sidelength/2);
-        int y0 = (int) (center.getIntPosition(1) + Math.sin((angle) * Math.PI) * sidelength/2);
+        int x0 = (int) (center.getIntPosition(0) + Math.cos(angle * Math.PI) * sidelength/2);
+        int y0 = (int) (center.getIntPosition(1) + Math.sin(angle* Math.PI) * sidelength/2);
         int x1 = (int) (center.getIntPosition(0) + Math.cos((1+angle) * Math.PI) * sidelength/2);
         int y1 = (int) (center.getIntPosition(1) + Math.sin((1+angle) * Math.PI) * sidelength/2);
 
         return new RotatedRectRoi(x0, y0, x1, y1, sidelength);
+    }
+
+    public static RotatedRectRoi getRoi(Point center, double sidelength, double angle, double sidelength2){
+        int x0 = (int) (center.getIntPosition(0) + Math.cos(angle * Math.PI) * sidelength/2);
+        int y0 = (int) (center.getIntPosition(1) + Math.sin(angle* Math.PI) * sidelength/2);
+        int x1 = (int) (center.getIntPosition(0) + Math.cos((1+angle) * Math.PI) * sidelength/2);
+        int y1 = (int) (center.getIntPosition(1) + Math.sin((1+angle) * Math.PI) * sidelength/2);
+
+        return new RotatedRectRoi(x0, y0, x1, y1, sidelength2);
     }
 
     private static int lowerpower(int n){
@@ -229,4 +220,107 @@ public class util {
         ImagePlus copy = imp.duplicate();
         return copy.crop(new Roi[]{new Roi(x, y, size_x, size_y)})[0];
     }
+
+    public static void addLutLegend(ImageProcessor plot, OwnColorTable ct, String label, int width, double start, double end){
+        int img_height = plot.getHeight();
+        int img_width = plot.getWidth();
+        plot.setLineWidth(2);
+        // Add a LUT legend to the provided plot with the provided start, end and title
+        for(int i = 0; i < width; i++){
+            plot.setColor(ct.getColor(i, 0, width));
+            plot.drawLine((int) (img_width*(0.01 + 0.0005 * (i+2))), (int) (img_height*0.93), (int) (img_width*(0.01 + 0.0005 * (i+2))), (int) (img_height*0.99));
+        }
+        plot.setColor(new Color(0, 0,0));
+
+        int[] args = getAbsoluteCoords(new double[]{0.01,0.925, 0.01, 0.995}, img_width, img_height);
+        plot.drawLine(args[0], args[1], args[2], args[3]);
+        args = getAbsoluteCoords(new double[]{0.01 + 0.0005 * (width+2),0.925, 0.01 + 0.0005 * (width+2), 0.995}, img_width, img_height);
+        plot.drawLine(args[0], args[1], args[2], args[3]);
+        args = getAbsoluteCoords(new double[]{0.011, 0.99, 0.01 + 0.0005 * (width+2), 0.99}, img_width, img_height);
+        plot.drawLine(args[0], args[1], args[2], args[3]);
+
+
+        double diff = end - start;
+
+        for(double i = start + 25; i < end; i += 25){
+            double w = ((i-start)/diff)*width;
+            args = getAbsoluteCoords(new double[]{0.01 + 0.0005 * (w+2), 0.986, 0.01 + 0.0005 * (w+2), 0.99}, img_width, img_height);
+            plot.drawLine(args[0], args[1], args[2], args[3]);
+
+        }
+
+        for(double i = start + 50; i < end; i += 50){
+            double w = ((i-start)/diff)*width;
+            args = getAbsoluteCoords(new double[]{0.01 + 0.0005 * (w+2), 0.984, 0.01 + 0.0005 * (w+2), 0.99}, img_width, img_height);
+            plot.drawLine(args[0], args[1], args[2], args[3]);
+        }
+
+        for(double i = start + 100; i < end; i += 100){
+            double w = ((i-start)/diff)*width;
+            args = getAbsoluteCoords(new double[]{0.01 + 0.0005 * (w+2), 0.982, 0.01 + 0.0005 * (w+2), 0.99}, img_width, img_height);
+            plot.drawLine(args[0], args[1], args[2], args[3]);
+        }
+
+        plot.setFontSize(42);
+        plot.setColor(new Color(255, 255, 255));
+        plot.drawString(String.valueOf((int) start), (int) (0.001*img_width), (int) (0.92*img_height));
+        plot.drawString(label, (int) (img_width*(0.001 + 0.00025 * (width-5))), (int) (img_height*0.92));
+        plot.drawString(String.valueOf((int) end), (int) (img_width*(0.001 + 0.0005 * (width+2))), (int) (0.92*img_height));
+    }
+
+    private static int[] getAbsoluteCoords(double[] coords, int width, int height){
+        return new int[]{(int) (width * coords[0]), (int)(height * coords[1]), (int)(width * coords[2]), (int) (height * coords[3])};
+    }
+
+    public static void SaveCSV(final ArrayList<ArrayList<Double>> data, List<String> Headers, Path CSV_FILE_NAME) {
+        try {
+            FileWriter fileWrt = new FileWriter(CSV_FILE_NAME.toString());
+            BufferedWriter bufferWrt = new BufferedWriter(fileWrt);
+            bufferWrt.write(String.join(",", Headers) + "\n");
+
+            StringBuilder s = new StringBuilder(100);
+            for (int r = 0; r < data.size(); r++) {
+                s.setLength(0);
+                for (int c = 0; c < data.get(0).size(); c++) {
+                    s.append(data.get(r).get(c));
+                    if (c < data.get(0).size() - 1) {
+                        s.append(",");
+                    }
+                }
+                if (r <= data.size() - 1) {
+                    s.append("\n");
+                    bufferWrt.write(s.toString());
+                }
+            }
+
+            bufferWrt.close();
+        } catch (Exception e) {
+            System.out.println("Could not save CSV.");
+            e.printStackTrace();
+        }
+        System.gc();
+    }
+
+    public static double[] calculateStandardDeviation(ArrayList<Double> array) {
+
+        // get the sum of array
+        double sum = 0.0;
+        for (double i : array) {
+            sum += i;
+        }
+
+        // get the mean of array
+        int length = array.size();
+        double mean = sum / length;
+
+        // calculate the standard deviation
+        double standardDeviation = 0.0;
+        for (double num : array) {
+            standardDeviation += Math.pow(num - mean, 2);
+        }
+
+        return new double[]{mean, Math.sqrt(standardDeviation / length)};
+    }
+
+
 }
