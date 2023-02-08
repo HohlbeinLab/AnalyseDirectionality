@@ -200,10 +200,10 @@ public class util {
     }
 
     public static RotatedRectRoi getRoi(Point center, double sidelength, double angle, double sidelength2){
-        int x0 = (int) (center.getIntPosition(0) + Math.cos(angle * Math.PI) * sidelength/2);
-        int y0 = (int) (center.getIntPosition(1) + Math.sin(angle* Math.PI) * sidelength/2);
-        int x1 = (int) (center.getIntPosition(0) + Math.cos((1+angle) * Math.PI) * sidelength/2);
-        int y1 = (int) (center.getIntPosition(1) + Math.sin((1+angle) * Math.PI) * sidelength/2);
+        int x0 = (int) (center.getIntPosition(0) + Math.sin(angle * Math.PI) * sidelength/2);
+        int y0 = (int) (center.getIntPosition(1) + Math.cos(angle* Math.PI) * sidelength/2);
+        int x1 = (int) (center.getIntPosition(0) + Math.sin((1+angle) * Math.PI) * sidelength/2);
+        int y1 = (int) (center.getIntPosition(1) + Math.cos((1+angle) * Math.PI) * sidelength/2);
 
         return new RotatedRectRoi(x0, y0, x1, y1, sidelength2);
     }

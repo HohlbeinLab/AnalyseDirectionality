@@ -30,9 +30,6 @@ import ij.WindowManager;
 import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.gui.ProfilePlot;
-import ij.plugin.Converter;
-import ij.plugin.Histogram;
-import ij.process.FloatProcessor;
 import ij.process.ImageConverter;
 import net.imglib2.Point;
 import ij.process.ColorProcessor;
@@ -48,12 +45,10 @@ import org.scijava.plugin.Plugin;
 
 import java.awt.*;
 import java.io.IOException;
-import java.nio.DoubleBuffer;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
@@ -76,6 +71,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
     @Parameter(label = "Overlap")
     private double overlap = 0.5; // percent overlap
+
+    @Parameter(label = "Buffer")
+    private double buffer = 1; // percent overlap
 
     /** The ImagePlus this plugin operates on. */
     //@Parameter(label="Image to process")
@@ -130,8 +128,11 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         } else {
 
             int totals = (height/window) * (width/window);
-            int width_mod = width % window;
-            int height_mod = height % window;
+            int width_mod = (int) Math.max(width % window, buffer*window);
+            int height_mod = (int) Math.max(height % window, buffer*window);
+
+            double iter_max = window*Math.max(1-overlap + buffer, 1);
+
             int cnt = 0;
 
             double min = Double.MAX_VALUE;
@@ -142,8 +143,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             //x, y, width, height, index, angle, FT data
             ArrayList<ArrayList<Double>> csv_data = new ArrayList<>();
 
-            for(int y = height_mod/2; y <= height-(window*(1-overlap)); y += (window*(1-overlap))){
-                for(int x = width_mod/2; x <= width - (window*(1-overlap)); x += (window*(1-overlap))){
+            for(int y = height_mod/2; y <= height- iter_max; y += (window*(1-overlap))){
+                for(int x = width_mod/2; x <= width - iter_max; x += (window*(1-overlap))){
                         cnt++;
                         logService.info(cnt/(double)totals);
                         ImagePlus imp_window = util.applyWindow(imp, x, y, window, window);
@@ -164,7 +165,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                                 max = profile[i];
 
                         }
-                        float angle = index/(r_width/2f)*180; //angle in degrees from 0-180
+                    float angle = index/(r_width/2f)*180; //angle in degrees from 0-180
+
+                    angle = (angle - 90)*-1 + 90;
 
                     Color color = ownColorTable.getColor(angle, 0f, 180f);
                     max_ip.setColor(color);
@@ -213,7 +216,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                 ArrayList<Double> c = csv_data.get(i);
                 c.add(6, ad);
                 csv_data.set(i, c);
-                overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/4), (long) (c.get(1)+c.get(3)/4)), ad*window/2f, c.get(5)/180f+0.5, window/75f));
+                overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/4), (long) (c.get(1)+c.get(3)/4)), ad*window/2f, c.get(5)/180f, window/25f));
 
                 histogram[(int)Math.round(c.get(5))/binwidth] += ad;
             }
@@ -274,8 +277,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
 
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\RCM\\Test Data\\SPC Horizontal\\MAX_middle to bottom- bottom 30% 405 5% 561_1_MMStack_Pos0.ome-1-1.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\Test Images\\crudemeat.png");
-        ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\17.tif");
+        ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\Test Images\\tif\\mosaic2.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\17.tif");
         imp.show();
         //args = "D:\\Data\\Microscopy\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_36_crop.tif";
         // "C:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\test.tif";
