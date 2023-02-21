@@ -5,10 +5,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.*;
 import ij.plugin.filter.RankFilters;
-import ij.process.AutoThresholder;
-import ij.process.FHT;
-import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
+import ij.process.*;
 import net.imglib2.Point;
 import net.imglib2.util.Pair;
 import net.imglib2.util.ValuePair;
@@ -19,6 +16,8 @@ import java.io.FileWriter;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.List;
+import static ij.measure.Measurements.*;
+
 
 
 public class util {
@@ -96,13 +95,13 @@ public class util {
         rankFilters.rank(imageProcessor, 15, 2);
 
 
-        ImagePlus mask = new ImagePlus("temp", imageProcessor);
+        //ImagePlus mask = new ImagePlus("temp", imageProcessor);
 
 
 
         imageProcessor.setAutoThreshold(AutoThresholder.Method.Huang, true, ImageProcessor.BLACK_AND_WHITE_LUT);
 
-        mask.show();
+        //mask.show();
 
 
     }
@@ -261,10 +260,10 @@ public class util {
             plot.drawLine(args[0], args[1], args[2], args[3]);
         }
 
-        plot.setFontSize(42);
+        plot.setFontSize(32);
         plot.setColor(new Color(255, 255, 255));
         plot.drawString(String.valueOf((int) start), (int) (0.001*img_width), (int) (0.92*img_height));
-        plot.drawString(label, (int) (img_width*(0.001 + 0.00025 * (width-5))), (int) (img_height*0.92));
+        plot.drawString(label, (int) (img_width*(0.001 + 0.00025 * (width-label.length()*2))), (int) (img_height*0.92));
         plot.drawString(String.valueOf((int) end), (int) (img_width*(0.001 + 0.0005 * (width+2))), (int) (0.92*img_height));
     }
 
@@ -322,5 +321,27 @@ public class util {
         return new double[]{mean, Math.sqrt(standardDeviation / length)};
     }
 
+    public static ImageProcessor multiply(ImageProcessor imp1, ColorProcessor imp2, double factor){
+        ColorProcessor result = new ColorProcessor(imp1.getWidth(), imp1.getHeight());
+        double max_val = 1<<imp1.getBitDepth();
+        for(int i = 0; i < imp1.getPixelCount(); i++){
+            double grey_value = Math.pow(imp1.get(i)/max_val, factor);
+            int c = imp2.get(i);
+
+            int r = (int) (grey_value*((c&0xff0000)>>16));
+            int g = (int) (grey_value*((c&0xff00)>>8));
+            int b = (int) (grey_value*(c&0xff));
+
+            result.set(i, (r<<16) + (g<<8) + b);
+        }
+
+        return result;
+    }
+
+    public static double getMedian(ImageProcessor imp, int x, int y, int width, int height){
+        imp.setRoi(x, y, width, height);
+        ImageStatistics stats = ImageStatistics.getStatistics(imp, AREA+MEAN+STD_DEV+MODE+MIN_MAX+RECT+MEDIAN, null);
+        return stats.median;
+    }
 
 }
