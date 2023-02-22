@@ -30,6 +30,7 @@ import ij.WindowManager;
 import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.gui.ProfilePlot;
+import ij.measure.Measurements;
 import ij.process.ColorProcessor;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
@@ -146,13 +147,20 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             result.show();
         } else {
 
-            int totals = (height/window) * (width/window);
-            int width_mod = (int) Math.max(width % window, buffer*window);
-            int height_mod = (int) Math.max(height % window, buffer*window);
+            int width_mod = (int) ((width-buffer*window)%(window*overlap));
+            int height_mod = (int) ((height-buffer*window)%(window*overlap));
+
+
+            if((height-buffer*window)%window < window*overlap)
+                height_mod = (int) (window*overlap);
+
+            if((width-buffer*window)%window < window*overlap)
+                width_mod = (int) (window*overlap);
+
+            width_mod = (int) (width%(window*overlap));
+            height_mod = (int) (height%(window*overlap));
 
             double iter_max = window*Math.max(1-overlap + buffer, 1);
-
-            int cnt = 0;
 
             double min = Double.MAX_VALUE;
             double max = -1;
@@ -162,11 +170,10 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             //x, y, width, height, index, median, angle, FT data
             ArrayList<ArrayList<Double>> csv_data = new ArrayList<>();
 
-
-            for(int y = height_mod/2; y <= height- iter_max; y += (window*(1-overlap))){
+            logService.info("window: " + window +", width_mod: " + width_mod + ", height_mod: " + height_mod + ", buffer: " + buffer + ", iter_max: " + iter_max + ", overlap: " + overlap);
+            for(int y = height_mod/2; y <= height - iter_max; y += (window*(1-overlap))){
                 for(int x = width_mod/2; x <= width - iter_max; x += (window*(1-overlap))){
-                        cnt++;
-                        logService.info(cnt/(double)totals);
+
 
                         ImagePlus imp_window = util.applyWindow(imp, x, y, window, window);
                         ImageProcessor allpeaks = util.obtainDistancesFFT(imp_window, 0.005f);
@@ -246,17 +253,18 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
             //0, 1, 2,     3,      4,     5,           6,     7,         8+
             //x, y, width, height, index, mask median, angle, relevance, FT data
-            final double cutoff_value = cutoff*(1<<mask.getBitDepth());
+            final double cutoff_value = cutoff*mask.getStatistics(Measurements.MIN_MAX).max;
             final int max_int_val = 1<<mask.getBitDepth();
             for (int i = 0; i < csv_data.size(); i++){
                 ArrayList<Double> c = csv_data.get(i);
                 double ad = (adjusted_stats.get(i)/stat_max) * (c.get(5)/max_int_val);
                 c.add(7, ad);
                 csv_data.set(i, c);
-                overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/4), (long) (c.get(1)+c.get(3)/4)), ad*window*vector_length, c.get(6)/180f, window*vector_thickness));
 
 
                 if(c.get(5) > cutoff_value){
+                    overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/2), (long) (c.get(1)+c.get(3)/2)), ad*window*vector_length, c.get(6)/180f, window*vector_thickness));
+
                     histogram_over[(int) (c.get(6)/binwidth)] += ad;
                 } else {
                     histogram_under[(int) (c.get(6)/binwidth)] += ad;
@@ -265,22 +273,27 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             }
 
             //FFT stuff
-            float[] histogram_fft_o = new float[fft_stack.getWidth()/2];
-            float[] histogram_fft_u = new float[fft_stack.getWidth()/2];
+            float[] histogram_fft_o = new float[(int) (fft_stack.getWidth()/2)];
+            float[] histogram_fft_u = new float[(int) (fft_stack.getWidth()/2)];
+            float[] xValues_fft = new float[(int) (fft_stack.getWidth()/2)];
+            for(int i = 0; i < xValues_fft.length; i++)
+                xValues_fft[i]=(i/(float)xValues_fft.length)*180;
 
             for(int i = 1; i <= fft_stack.size(); i++){
                 ImageProcessor fft_slice = fft_stack.getProcessor(i);
                 ImagePlus fft_dummy = new ImagePlus("dummy", fft_slice);
-                fft_dummy.setRoi(0, 10, fft_dummy.getWidth()/2, fft_dummy.getHeight());
+                fft_dummy.setRoi(0, 3, (int) (fft_dummy.getWidth()/2), 14);
                 ProfilePlot profilePlot = new ProfilePlot(fft_dummy);
                 double[] profile = profilePlot.getProfile();
 
-                if (csv_data.get(i).get(5) > cutoff_value) ewtwtrw4//csv data only size 15, one per block, <<//
+                if (csv_data.get(i-1).get(5) > cutoff_value)
                     for(int j = 0; j < profile.length; j++)
                         histogram_fft_o[j] += profile[j];
                 else
                     for(int j = 0; j < profile.length; j++)
                         histogram_fft_u[j] += profile[j];
+
+
             }
 
 
@@ -296,9 +309,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
             Plot hist_alt = new Plot("Histogram alternative", "Angle", "Value");
             hist_alt.setColor(Color.red);
-            hist_alt.addPoints(xValues, histogram_fft_o, null, Plot.toShape("line"), "Over alt");
+            hist_alt.addPoints(xValues_fft, histogram_fft_o, null, Plot.toShape("line"), "Over alt");
             hist_alt.setColor(Color.blue);
-            hist_alt.addPoints(xValues, histogram_fft_u, null, Plot.toShape("line"), "Under alt");
+            hist_alt.addPoints(xValues_fft, histogram_fft_u, null, Plot.toShape("line"), "Under alt");
 
             hist_alt.addLegend(null);
             hist_alt.setLimitsToFit(true);
@@ -317,16 +330,13 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         }
 
 
-
-
-
-
-
         ImageProcessor mul_ip = multiply(mask.getProcessor(), max_ip, 2);
 
         addLutLegend(mul_ip, ownColorTable, "Angle", 1024, 0f, 180f);
+        addLutLegend(max_ip, ownColorTable, "Angle", 1024, 0f, 180f);
         ImagePlus mul_result = new ImagePlus("mul_result", mul_ip);
         mul_result.show();
+        max_imp.repaintWindow();
 
         /*
         // threshold remove bottom 5%
@@ -370,11 +380,11 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
 
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\RCM\\Test Data\\SPC Horizontal\\MAX_middle to bottom- bottom 30% 405 5% 561_1_MMStack_Pos0.ome-1-1.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Processing Testing\\Test Images\\tif\\crudemeat.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\Test Images\\tif\\diamonds.tif");
         ImagePlus imp = new ij.io.Opener().openImage("test.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\17.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 24 cm\\32.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Microscopy\\Airyscan\\TVP_1\\TVP.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\15_crop.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 24 cm\\23_crop.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\TVP_1\\TVP.tif");
         imp.show();
         //args = "D:\\Data\\Microscopy\\2022\\07\\8%561_40ms_MP3_1_RhB100x\\height slice_1\\slice_36_crop.tif";
         // "C:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\test.tif";
