@@ -76,10 +76,10 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     @Parameter(label = "Buffer")
     private double buffer = 1; // percent overlap
 
-    @Parameter(label = "Length", min = "0", max = "10", stepSize = "1")
+    @Parameter(label = "Length", min = "0", max = "10", stepSize = "0.1")
     private double vector_length = 0.5;
 
-    @Parameter(label = "Thickness", min = "0", max = "100", stepSize = "5")
+    @Parameter(label = "Thickness", min = "0", max = "100", stepSize = "0.05")
     private double vector_thickness = 0.05;
 
     @Parameter(label = "Over/Under Cutoff fraction", min = "0", max="1", stepSize ="0.05")
@@ -147,18 +147,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             result.show();
         } else {
 
-            int width_mod = (int) ((width-buffer*window)%(window*overlap));
-            int height_mod = (int) ((height-buffer*window)%(window*overlap));
 
-
-            if((height-buffer*window)%window < window*overlap)
-                height_mod = (int) (window*overlap);
-
-            if((width-buffer*window)%window < window*overlap)
-                width_mod = (int) (window*overlap);
-
-            width_mod = (int) (width%(window*overlap));
-            height_mod = (int) (height%(window*overlap));
+            int width_mod = (int) (width%(window*overlap));
+            int height_mod = (int) (height%(window*overlap));
 
             double iter_max = window*Math.max(1-overlap + buffer, 1);
 
@@ -191,6 +182,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                         ProfilePlot profilePlot = new ProfilePlot(result);
                         double[] profile = profilePlot.getProfile();
 
+
+
                         int index = 0;
                         for (int i = 0; i < profile.length; i++) {
                             index = profile[i] > profile[index] ? i : index;
@@ -202,9 +195,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                         }
                         float angle = index/(r_width/2f)*180; //angle in degrees from 0-180
 
-                    angle = (angle - 90)*-1 + 90;
 
-                    Color color = ownColorTable.getColor(angle, 0f, 180f);
+                    Color color = ownColorTable.getColor(angle, 180f, 0);
                     max_ip.setColor(color);
                     max_ip.fillRect(x, y, window, window);
                     max_imp.repaintWindow();
@@ -223,6 +215,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                 }
             }
 
+
+            // calculate significance
             ArrayList<Double> adjusted_stats = new ArrayList<>();
 
             for (ArrayList<Double> list : csv_data){
@@ -273,30 +267,37 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             }
 
             //FFT stuff
-            float[] histogram_fft_o = new float[(int) (fft_stack.getWidth()/2)];
-            float[] histogram_fft_u = new float[(int) (fft_stack.getWidth()/2)];
-            float[] xValues_fft = new float[(int) (fft_stack.getWidth()/2)];
+            assert fft_stack != null;
+            int hist_size = fft_stack.getWidth()/2;
+            float[] histogram_fft_o = new float[hist_size];
+            float[] histogram_fft_u = new float[hist_size];
+            float[] histogram_fft_a = new float[hist_size];
+            float[] xValues_fft = new float[hist_size];
             for(int i = 0; i < xValues_fft.length; i++)
                 xValues_fft[i]=(i/(float)xValues_fft.length)*180;
 
             for(int i = 1; i <= fft_stack.size(); i++){
                 ImageProcessor fft_slice = fft_stack.getProcessor(i);
                 ImagePlus fft_dummy = new ImagePlus("dummy", fft_slice);
-                fft_dummy.setRoi(0, 3, (int) (fft_dummy.getWidth()/2), 14);
+                fft_dummy.setRoi(0, 3, (fft_dummy.getWidth()/2), 14);
                 ProfilePlot profilePlot = new ProfilePlot(fft_dummy);
                 double[] profile = profilePlot.getProfile();
 
                 if (csv_data.get(i-1).get(5) > cutoff_value)
-                    for(int j = 0; j < profile.length; j++)
-                        histogram_fft_o[j] += profile[j];
+                    for(int j = 0; j < profile.length; j++) {
+                        histogram_fft_o[profile.length - j - 1] += profile[j];
+                        histogram_fft_a[profile.length - j - 1] += profile[j];
+                    }
                 else
-                    for(int j = 0; j < profile.length; j++)
-                        histogram_fft_u[j] += profile[j];
+                    for(int j = 0; j < profile.length; j++) {
+                        histogram_fft_u[profile.length - j - 1] += profile[j];
+                        histogram_fft_a[profile.length - j - 1] += profile[j];
+                    }
 
 
             }
 
-
+            /*
             Plot hist = new Plot("Histogram", "Angle", "Value");
             hist.setColor(Color.red);
             hist.addPoints(xValues, histogram_over, null, Plot.toShape("line"), "Over");
@@ -307,11 +308,15 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             hist.setLimitsToFit(true);
             hist.show();
 
-            Plot hist_alt = new Plot("Histogram alternative", "Angle", "Value");
+             */
+
+            Plot hist_alt = new Plot("Histogram", "Angle", "Value");
             hist_alt.setColor(Color.red);
-            hist_alt.addPoints(xValues_fft, histogram_fft_o, null, Plot.toShape("line"), "Over alt");
+            hist_alt.addPoints(xValues_fft, histogram_fft_o, null, Plot.toShape("line"), "Over Threshold");
             hist_alt.setColor(Color.blue);
-            hist_alt.addPoints(xValues_fft, histogram_fft_u, null, Plot.toShape("line"), "Under alt");
+            hist_alt.addPoints(xValues_fft, histogram_fft_u, null, Plot.toShape("line"), "Under Threshold");
+            hist_alt.setColor(Color.green);
+            hist_alt.addPoints(xValues_fft, histogram_fft_a, null, Plot.toShape("line"), "Total");
 
             hist_alt.addLegend(null);
             hist_alt.setLimitsToFit(true);
@@ -380,8 +385,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
 
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\RCM\\Test Data\\SPC Horizontal\\MAX_middle to bottom- bottom 30% 405 5% 561_1_MMStack_Pos0.ome-1-1.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\Test Images\\tif\\diamonds.tif");
-        ImagePlus imp = new ij.io.Opener().openImage("test.tif");
+        ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Processing Testing\\MRI\\parabolta.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Processing Testing\\Test Images\\tif\\45degright.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("test.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\15_crop.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 24 cm\\23_crop.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\TVP_1\\TVP.tif");
