@@ -82,8 +82,12 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     @Parameter(label = "Thickness", min = "0", max = "100", stepSize = "0.05")
     private double vector_thickness = 0.05;
 
-    @Parameter(label = "Over/Under Cutoff fraction", min = "0", max="1", stepSize ="0.05")
-    private double cutoff = 0.4;
+    @Parameter(label = "Over/Under Cutoff (std over mean)", min = "0", max="5", stepSize ="0.1")
+    private double cutoff = 3;
+
+
+    private Color vector_color = new Color(255, 227, 0);
+
 
     /** The ImagePlus this plugin operates on. */
     //@Parameter(label="Image to process")
@@ -221,50 +225,35 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
             for (ArrayList<Double> list : csv_data){
                 ArrayList<Double> adjusted_list = new ArrayList<>();
-                for(int i = 6; i < list.size(); i++)
-                    adjusted_list.add((list.get(i)-min)/(max-min));
+                for(int i = 7; i < list.size(); i++)
+                    adjusted_list.add(list.get(i));
 
                 double[] stats = calculateStandardDeviation(adjusted_list); //mean, std
                 double cur_max = Collections.max(adjusted_list);
+
                 if(Double.isNaN(stats[1]) || stats[1] == 0.0)
                     adjusted_stats.add(0.0);
-                else
-                    adjusted_stats.add(((cur_max-stats[0])/stats[1])*cur_max); //(max-mean)/std
+                else {
+                    double sig = ((cur_max - stats[0]) / stats[1]); //standard deviations over mean
+                    adjusted_stats.add(sig);
+
+                }
             }
-
-            double stat_max = Collections.max(adjusted_stats);
-
-
-            int binwidth = 5;
-            float[] xValues = new float[180/binwidth + 1];
-            for(int i = 0; i < xValues.length; i++)
-                xValues[i]=i*binwidth;
-
-            float[] histogram_over = new float[180/binwidth+1];
-            float[] histogram_under = new float[180/binwidth+1];
-
-
 
             //0, 1, 2,     3,      4,     5,           6,     7,         8+
             //x, y, width, height, index, mask median, angle, relevance, FT data
-            final double cutoff_value = cutoff*mask.getStatistics(Measurements.MIN_MAX).max;
-            final int max_int_val = 1<<mask.getBitDepth();
             for (int i = 0; i < csv_data.size(); i++){
                 ArrayList<Double> c = csv_data.get(i);
-                double ad = (adjusted_stats.get(i)/stat_max) * (c.get(5)/max_int_val);
+                double ad = adjusted_stats.get(i);
                 c.add(7, ad);
                 csv_data.set(i, c);
 
-
-                if(c.get(5) > cutoff_value){
-                    overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/2), (long) (c.get(1)+c.get(3)/2)), ad*window*vector_length, c.get(6)/180f, window*vector_thickness));
-
-                    histogram_over[(int) (c.get(6)/binwidth)] += ad;
-                } else {
-                    histogram_under[(int) (c.get(6)/binwidth)] += ad;
-                }
+                if(c.get(7) > cutoff)
+                    overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/2), (long) (c.get(1)+c.get(3)/2)),0.25*window*vector_thickness , c.get(6)/180f,  0.1*ad*window*vector_length));
 
             }
+
+
 
             //FFT stuff
             assert fft_stack != null;
@@ -283,7 +272,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                 ProfilePlot profilePlot = new ProfilePlot(fft_dummy);
                 double[] profile = profilePlot.getProfile();
 
-                if (csv_data.get(i-1).get(5) > cutoff_value)
+                if (csv_data.get(i-1).get(7) > cutoff)
                     for(int j = 0; j < profile.length; j++) {
                         histogram_fft_o[profile.length - j - 1] += profile[j];
                         histogram_fft_a[profile.length - j - 1] += profile[j];
@@ -293,22 +282,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                         histogram_fft_u[profile.length - j - 1] += profile[j];
                         histogram_fft_a[profile.length - j - 1] += profile[j];
                     }
-
-
             }
 
-            /*
-            Plot hist = new Plot("Histogram", "Angle", "Value");
-            hist.setColor(Color.red);
-            hist.addPoints(xValues, histogram_over, null, Plot.toShape("line"), "Over");
-            hist.setColor(Color.blue);
-            hist.addPoints(xValues, histogram_under, null, Plot.toShape("line"), "Under");
 
-            hist.addLegend(null);
-            hist.setLimitsToFit(true);
-            hist.show();
-
-             */
 
             Plot hist_alt = new Plot("Histogram", "Angle", "Value");
             hist_alt.setColor(Color.red);
@@ -329,7 +305,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
             converter = new ImageConverter(imp);
             converter.convertToRGB();
-            overlay.fill(imp, new Color(255, 227, 0), null);
+            overlay.fill(imp, vector_color, null);
             overlay.clear();
             SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), Paths.get(".\\test.csv"));
         }
@@ -385,10 +361,10 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
 
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\RCM\\Test Data\\SPC Horizontal\\MAX_middle to bottom- bottom 30% 405 5% 561_1_MMStack_Pos0.ome-1-1.tif");
-        ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Processing Testing\\MRI\\parabolta.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("D:\\Data\\Processing Testing\\Test Images\\tif\\45degright.tif");
+       // ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\MRI\\anisotropic_cropped.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\Test Images\\tif\\45degright.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("test.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\15_crop.tif");
+        ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\10_crop.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 24 cm\\23_crop.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\TVP_1\\TVP.tif");
         imp.show();
