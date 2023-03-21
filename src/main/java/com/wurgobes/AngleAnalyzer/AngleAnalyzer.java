@@ -85,6 +85,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     @Parameter(label = "Over/Under Cutoff (std over mean)", min = "0", max="5", stepSize ="0.1")
     private double cutoff = 3;
 
+    @Parameter(label = "Intensity cutoff (0-255)", min = "0", max = "255", stepSize ="1")
+    private double intensity_cutoff = 0;
+
 
     private Color vector_color = new Color(255, 227, 0);
 
@@ -165,6 +168,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             //x, y, width, height, index, median, angle, FT data
             ArrayList<ArrayList<Double>> csv_data = new ArrayList<>();
 
+            ArrayList<Double> angle_map = new ArrayList<>();
+            int map_width = -1;
+
             logService.info("window: " + window +", width_mod: " + width_mod + ", height_mod: " + height_mod + ", buffer: " + buffer + ", iter_max: " + iter_max + ", overlap: " + overlap);
             for(int y = height_mod/2; y <= height - iter_max; y += (window*(1-overlap))){
                 for(int x = width_mod/2; x <= width - iter_max; x += (window*(1-overlap))){
@@ -207,6 +213,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
                     double median = getMedian(mask.getProcessor(), x, y, window, window);
 
+                    angle_map.add((double) angle);
                     ArrayList<Double> curr_data = new ArrayList<>(Arrays.asList((double) x, (double) y, (double) window, (double) window, (double) index, median, (double) angle));
                     ArrayList<Double> profile_data = DoubleStream.of(profile).boxed().collect(Collectors.toCollection(ArrayList::new));
                     curr_data.addAll(profile_data); // java bad
@@ -217,11 +224,14 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                     //result.show();
 
                 }
+                if(map_width == -1) //size of one row of data
+                    map_width = csv_data.size();
             }
 
 
             // calculate significance
             ArrayList<Double> adjusted_stats = new ArrayList<>();
+
 
             for (ArrayList<Double> list : csv_data){
                 ArrayList<Double> adjusted_list = new ArrayList<>();
@@ -236,20 +246,29 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
                 else {
                     double sig = ((cur_max - stats[0]) / stats[1]); //standard deviations over mean
                     adjusted_stats.add(sig);
-
                 }
             }
+
+            ArrayList<Boolean> sig_map = new ArrayList<>();
+
 
             //0, 1, 2,     3,      4,     5,           6,     7,         8+
             //x, y, width, height, index, mask median, angle, relevance, FT data
             for (int i = 0; i < csv_data.size(); i++){
+
+
                 ArrayList<Double> c = csv_data.get(i);
                 double ad = adjusted_stats.get(i);
                 c.add(7, ad);
                 csv_data.set(i, c);
 
-                if(c.get(7) > cutoff)
-                    overlay.add(getRoi(new Point((long) (c.get(0)+c.get(2)/2), (long) (c.get(1)+c.get(3)/2)),0.25*window*vector_thickness , c.get(6)/180f,  0.1*ad*window*vector_length));
+                if(c.get(7) > cutoff)  // Significant
+                    overlay.add(getRoi(new Point((long) (c.get(0) + c.get(2) / 2), (long) (c.get(1) + c.get(3) / 2)), 0.25 * window * vector_thickness, c.get(6) / 180f, 0.1 * ad * window * vector_length));
+                if(c.get(5) > intensity_cutoff) {
+                    sig_map.add(Boolean.TRUE);
+                } else {
+                    sig_map.add(Boolean.FALSE);
+                }
 
             }
 
@@ -308,16 +327,44 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             overlay.fill(imp, vector_color, null);
             overlay.clear();
             SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), Paths.get(".\\test.csv"));
+
+            /*
+             * neighbourhood size search
+             * from min to max size, steps of 2
+             * heavily depends on window size
+             * max size is maximum square that can fit (min of length and width)
+             *
+             * map_width - width of map
+             * map_length (angle_map.size()/map_width) - length of map
+             */
+
+            int map_length = angle_map.size()/map_width;
+            ArrayList<ArrayList<Double>> order_parameter_map = new ArrayList<>(); // per neighbourhood size (3, 5, 7, ...) a flat list of order parameters
+            for(int neighbourhood_size = 3; neighbourhood_size < Math.min(map_length, map_width); neighbourhood_size += 2) {
+                ArrayList<Double> order_parameter_submap = new ArrayList<>();
+
+                for(int i = 0; i < angle_map.size(); i++) {
+
+                }
+            }
+
+            ImageProcessor mul_ip = multiply(mask.getProcessor(), max_ip, 2);
+
+            addLutLegend(mul_ip, ownColorTable, "Angle", 1024, 0f, 180f);
+            addLutLegend(max_ip, ownColorTable, "Angle", 1024, 0f, 180f);
+            ImagePlus mul_result = new ImagePlus("mul_result", mul_ip);
+            mul_result.show();
+            max_imp.repaintWindow();
+
         }
 
 
-        ImageProcessor mul_ip = multiply(mask.getProcessor(), max_ip, 2);
 
-        addLutLegend(mul_ip, ownColorTable, "Angle", 1024, 0f, 180f);
-        addLutLegend(max_ip, ownColorTable, "Angle", 1024, 0f, 180f);
-        ImagePlus mul_result = new ImagePlus("mul_result", mul_ip);
-        mul_result.show();
-        max_imp.repaintWindow();
+
+
+
+
+
 
         /*
         // threshold remove bottom 5%
@@ -363,8 +410,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\RCM\\Test Data\\SPC Horizontal\\MAX_middle to bottom- bottom 30% 405 5% 561_1_MMStack_Pos0.ome-1-1.tif");
        // ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\MRI\\anisotropic_cropped.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Processing Testing\\Test Images\\tif\\45degright.tif");
-        //ImagePlus imp = new ij.io.Opener().openImage("test.tif");
-        ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\10_crop.tif");
+        ImagePlus imp = new ij.io.Opener().openImage("test.tif");
+        //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 11 cm\\10_crop.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\2022\\12\\Dead Stop SPC June 2022 24 cm\\23_crop.tif");
         //ImagePlus imp = new ij.io.Opener().openImage("W:\\Data\\Microscopy\\Airyscan\\TVP_1\\TVP.tif");
         imp.show();

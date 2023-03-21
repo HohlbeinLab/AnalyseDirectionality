@@ -344,4 +344,8 @@ public class util {
         return stats.median;
     }
 
+    public static ArrayList<Double> getValuesWindow(ArrayList<Double> lst, int index, int window_size){
+        
+    }
+
 }
