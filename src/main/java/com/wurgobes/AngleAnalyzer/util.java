@@ -126,7 +126,7 @@ public class util {
         int index = 0;
 
         for(double angle = start; angle <= end; angle += angleprecision){
-            RotatedRectRoi roi = getRoi(center, sidelength, angle);
+            RotatedRectRoi roi = getRotatedRoi(center, sidelength, angle);
 
             imp.setRoi(roi);
 
@@ -134,10 +134,8 @@ public class util {
 
             float[] magnitudes = fht.fourier1D(data, FHT.HAMMING);
             temp[index++] = magnitudes;
-
-
         }
-        imp.setRoi(getRoi(center, sidelength, end));
+        imp.setRoi(getRotatedRoi(center, sidelength, end));
 
         //return results;
         return new FloatProcessor(temp);
@@ -189,22 +187,28 @@ public class util {
         return peaks;
     }
 
-    public static RotatedRectRoi getRoi(Point center, double sidelength, double angle){
-        int x0 = (int) (center.getIntPosition(0) + Math.cos((1+angle) * Math.PI) * sidelength/2);
-        int y0 = (int) (center.getIntPosition(1) + Math.sin((1+angle)* Math.PI) * sidelength/2);
-        int x1 = (int) (center.getIntPosition(0) + Math.cos((0+angle) * Math.PI) * sidelength/2);
-        int y1 = (int) (center.getIntPosition(1) + Math.sin((0+angle) * Math.PI) * sidelength/2);
-
-        return new RotatedRectRoi(x0, y0, x1, y1, sidelength);
+    private static List<Double> getMidPoints(Point center, double sidelength, double angle){
+        return Arrays.asList(
+                (center.getIntPosition(0) + Math.sin((angle-0.5) * Math.PI) * sidelength/2),
+                (center.getIntPosition(1) + Math.cos((angle-0.5)* Math.PI) * sidelength/2),
+                (center.getIntPosition(0) + Math.sin((angle+0.5) * Math.PI) * sidelength/2),
+                (center.getIntPosition(1) + Math.cos((angle+0.5) * Math.PI) * sidelength/2)
+        );
     }
 
-    public static RotatedRectRoi getRoi(Point center, double sidelength, double angle, double sidelength2){
-        int x0 = (int) (center.getIntPosition(0) + Math.cos((1+angle) * Math.PI) * sidelength/2);
-        int y0 = (int) (center.getIntPosition(1) + Math.sin((1+angle)* Math.PI) * sidelength/2);
-        int x1 = (int) (center.getIntPosition(0) + Math.cos((0+angle) * Math.PI) * sidelength/2);
-        int y1 = (int) (center.getIntPosition(1) + Math.sin((0+angle) * Math.PI) * sidelength/2);
+    public static RotatedRectRoi getRotatedRoi(Point center, double sidelength, double angle){
+        return getRotatedRoi(center, sidelength, angle, sidelength);
+    }
 
-        return new RotatedRectRoi(x0, y0, x1, y1, sidelength2);
+    public static RotatedRectRoi getRotatedRoi(Point center, double sidelength, double angle, double sidelength2){
+        List<Double> points = getMidPoints(center, sidelength, angle);
+        return new RotatedRectRoi(points.get(0), points.get(1), points.get(2), points.get(3), sidelength2);
+    }
+
+    public static Line getLineRoi(Point center, double sidelength, double angle){
+        //Rotating due to how alignment works
+        List<Double> points = getMidPoints(center, sidelength, angle + 0.5);
+        return new Line(points.get(0), points.get(1), points.get(2), points.get(3));
     }
 
     private static int lowerpower(int n){
@@ -344,8 +348,47 @@ public class util {
         return stats.median;
     }
 
-    public static ArrayList<Double> getValuesWindow(ArrayList<Double> lst, int index, int window_size){
-        
+    public static ArrayList<Double> getValuesWindow(ArrayList<Double> lst, int index, int window_size, int width){
+        int half_window = window_size % 2 == 1 ? (window_size-1)/2 : window_size/2;
+        ArrayList<Double> result = new ArrayList<>(window_size*window_size);
+
+        for(int y = -half_window; y < half_window; y++) {
+            result.addAll(lst.subList(index + y*width - half_window, index + y*width + half_window));
+        }
+
+        return result;
+    }
+
+    public static ArrayList<Double> maskList(ArrayList<Double> lst, ArrayList<Boolean> mask, double replacement){
+        ArrayList<Double> result = new ArrayList<>(lst.size());
+
+        for(int i = 0; i < lst.size(); i++)
+            if(mask.get(i))
+                result.add(lst.get(i));
+            else
+                result.add(replacement);
+
+        return result;
+    }
+
+    public static ArrayList<Double> ListCos(ArrayList<Double> lst, double value){
+        ArrayList<Double> result = new ArrayList<>(lst.size());
+
+        for(double v : lst){
+            if(!Double.isNaN(v))
+                result.add(Math.pow(Math.cos(Math.toRadians(v-value)), 2));
+        }
+
+        return result;
+    }
+
+    public static double mean(ArrayList<Double> list){
+        double total = 0;
+        for(double v : list)
+            if(!Double.isNaN(v))
+                total += v;
+
+        return total/list.size();
     }
 
 }

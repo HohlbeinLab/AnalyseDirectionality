@@ -9,7 +9,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>33.2.0</version>
+		<version>35.1.1</version>
 	</parent>
 
 	<groupId>com.wurgobes</groupId>
@@ -20,7 +20,7 @@
 	<name>Angle Analyzer</name>
 	<description>A tool to analyze local gradients</description>
 	<url>https://github.com/HohlbeinLab/</url>
-	<inceptionYear>2020</inceptionYear>
+	<inceptionYear>2023</inceptionYear>
 	<organization>
 		<name>Wageningen University</name>
 		<url>https://wur.nl/</url>
@@ -43,8 +43,19 @@
 			</roles>
 		</contributor>
 	</contributors>
+    <build>
+        <plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<release>8</release>
+				</configuration>
+			</plugin>
+        </plugins>
+    </build>
 
-	<developers>
+    <developers>
 		<developer>
 			<id>mgobes</id>
 			<name>Martijn Gobes</name>
@@ -120,11 +131,7 @@
 			<artifactId>OrientationJ</artifactId>
 			<version>8b80d2428f056dc2d11d1ccc7f4d99919016876d</version>
 		</dependency>
-		<dependency>
-			<groupId>com.github.DrNjitram</groupId>
-			<artifactId>FFTWindow</artifactId>
-			<version>b162364f36a026e87362430a96935bf95f17ddbb</version>
-		</dependency>
+
 
 	</dependencies>
 
