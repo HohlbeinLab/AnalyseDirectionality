@@ -96,7 +96,8 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     ArrayList<Double> adjusted_stats = new ArrayList<>();
     ArrayList<Double> angle_map = new ArrayList<>();
     ImageStack fft_stack = null;
-    Plot hist_alt = new Plot("Histogram", "Angle", "Value");
+    ImagePlus fft_imp = null;
+    Plot hist_alt = new Plot("Angles", "Angle", "Intensity (a.u)");
     Plot order_plot = new Plot("Order", "Neighbourhood Size", "Avg Order");
     ArrayList<Roi> rois = new ArrayList<>();
     Overlay overlay = new Overlay();
@@ -109,6 +110,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     int map_width = -1;
 
     ImagePlus mask = null;
+    ImagePlus sig_mask = null;
     ImagePlus max_imp = null;
 
     RAFTParameters params = new RAFTParameters();
@@ -133,6 +135,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         width = imp.getWidth();
         height = imp.getHeight();
 
+        params.width = width;
+        params.height = height;
+
         hist_alt.savePlotObjects();
         order_plot.savePlotObjects();
 
@@ -152,7 +157,6 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
 
         RAFTDialogue<T> raftDialogue = new RAFTDialogue<>(this, params);
         raftDialogue.showDialog();
-        System.out.println("done");
 	}
 
     public void saveData(){
@@ -192,10 +196,16 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     }
 
     public void calculateAngles(RAFTParameters params){
+        csv_data.clear();
+        angle_map.clear();
         Pair<Integer, ImageStack> pair = AnalyzerFunctions.run(imp, max_imp, mask, csv_data, angle_map, circularLut, params.overlap, params.buffer, params.window, height, width);
         map_width = pair.getLeft();
         fft_stack = pair.getRight();
-        ImagePlus fft_imp = new ImagePlus("ffts", fft_stack);
+        if(fft_imp == null)
+            fft_imp = new ImagePlus("ffts", fft_stack);
+        else
+            fft_imp.setStack(fft_stack);
+
         fft_imp.show();
         addLutLegend(max_imp.getProcessor(), circularLut, "Angle", 1024, 0f, 180f);
         max_imp.repaintWindow();
@@ -224,16 +234,29 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     public void calculateOrder(RAFTParameters params){
         sig_map.clear();
         order_plot.restorePlotObjects();
-        calcSigMap(csv_data, sig_map, params.intensity_cutoff);
+        ImageProcessor sig_ip = calcSigMap(csv_data, sig_map, params);
         order_stack = order_parameter(csv_data, angle_map, sig_map, orderLUT, order_stack, order_plot, map_width, width, height, params.window);
 
         if(order_imp == null)
             order_imp = new ImagePlus("order_parameter", order_stack);
 
+        if(sig_mask == null)
+            sig_mask = new ImagePlus("Intensity Cutoff Mask", sig_ip);
+        else
+            sig_mask.setProcessor(sig_ip);
+
+        order_plot.setLimitsToFit(Boolean.TRUE);
+        order_plot.show();
+
         if(order_imp.isVisible())
             order_imp.updateAndRepaintWindow();
         else
             order_imp.show();
+
+        if(sig_mask.isVisible())
+            sig_mask.updateAndRepaintWindow();
+        else
+            sig_mask.show();
     }
 
     public void toggleOverlay(){
@@ -243,6 +266,29 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
     public void AngleGraph(RAFTParameters params){
         hist_alt.restorePlotObjects();
         createAngleGraph(fft_stack, csv_data, params.cutoff, hist_alt);
+    }
+
+    public void scanWindow(RAFTParameters params, int start, int end){
+        ImageStack angle_stack = null;
+        ImageStack order_graph_stack = null;
+        for(int i = start; i <= end; i+=2){
+            // For each window collect the angle dist and the order graph
+            params.window = i;
+            runVector(params);
+
+            if (angle_stack == null)
+                angle_stack = new ImageStack(hist_alt.getProcessor().getWidth(), hist_alt.getProcessor().getHeight());
+            if (order_graph_stack == null)
+                order_graph_stack = new ImageStack(order_plot.getProcessor().getWidth(), order_plot.getProcessor().getHeight());
+
+            angle_stack.addSlice("window " + i, hist_alt.getProcessor().duplicate());
+            order_graph_stack.addSlice("window " + i, order_plot.getProcessor().duplicate());
+        }
+
+        ImagePlus angle_window_sweep = new ImagePlus("Angle vs Window", angle_stack);
+        ImagePlus order_window_sweep = new ImagePlus("Order vs Window", order_graph_stack);
+        angle_window_sweep.show();
+        order_window_sweep.show();
     }
 
     // Only run from the IDE
@@ -286,14 +332,17 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
     private final SpinnerDouble spnVectorFieldWidth		= new SpinnerDouble(1.0, 0.1, 10, 0.1);
     private final SpinnerDouble spnCutoff		= new SpinnerDouble(2.0, 0, 10, 0.1);
     private final SpinnerDouble spnIntensityCutoff		= new SpinnerDouble(0, 0, 1, 0.01);
+    private final SpinnerDouble spnScanStart		= new SpinnerDouble(21, 3, 100000, 1);
+    private final SpinnerDouble spnScanEnd		= new SpinnerDouble(61, 3, 100000, 1);
 
     private final JCheckBox	showVectorFieldOverlay	    = new JCheckBox("Overlay", true);
     protected WalkBarOrientationJ walk                  = new WalkBarOrientationJ();
 
     protected JButton				bnRun					= new JButton("Run");
     protected JButton				bnSave					= new JButton("Save Data");
+    protected JButton				bnScan					= new JButton("Window Size Scan");
 
-    private enum Job {NONE, RUN, VECTOR_FIELD, SAVE, CUTOFF, ORDER, VECTOR_SCALE}
+    private enum Job {NONE, RUN, VECTOR_FIELD, SAVE, CUTOFF, ORDER, VECTOR_SCALE, SCAN}
     private Job job = Job.NONE;
     private Thread					thread				= null;
 
@@ -310,6 +359,8 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
             start(Job.VECTOR_FIELD);
         else if (e.getSource() == bnRun)
             start(Job.RUN);
+        else if (e.getSource() == bnScan)
+            start(Job.SCAN);
         else if (e.getSource() == bnSave)
             start(Job.SAVE);
 
@@ -366,10 +417,13 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
 
         if (job == Job.RUN)
             angleAnalyzer.runVector(params);
+        if (job == Job.SCAN)
+            angleAnalyzer.scanWindow(params, params.start, params.end);
         if (job == Job.VECTOR_FIELD && params.firstResults)
             angleAnalyzer.toggleOverlay();
         if (job == Job.VECTOR_SCALE && params.firstResults)
             angleAnalyzer.applyVectorField(params);
+
 
         if (job == Job.SAVE && params.firstResults)
             angleAnalyzer.saveData();
@@ -418,15 +472,20 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
         pnMain.place(0, 0, pnMain1);
 
         GridPanel pnVectors = new GridPanel("Vector Field");
-
         pnVectors.place(2, 0, new JLabel("Vector Length(%)"));
         pnVectors.place(2, 1, spnVectorFieldLength);
         pnVectors.place(3, 0, new JLabel("Vector Width (px)"));
         pnVectors.place(3, 1, spnVectorFieldWidth);
         pnVectors.place(6, 1, showVectorFieldOverlay);
 
-        GridPanel pnCutoff = new GridPanel("Cutoffs");
+        GridPanel pnScan = new GridPanel("Scan");
+        pnScan.place(2, 0, new JLabel("Window Start"));
+        pnScan.place(2, 1, spnScanStart);
+        pnScan.place(3, 0, new JLabel("Window End"));
+        pnScan.place(3, 1, spnScanEnd);
+        pnScan.place(4, 1, bnScan);
 
+        GridPanel pnCutoff = new GridPanel("Cutoffs");
         pnCutoff.place(2, 0, new JLabel("std Cutoff"));
         pnCutoff.place(2, 1, spnCutoff);
         pnCutoff.place(3, 0, new JLabel("Intensity Cutoff"));
@@ -438,9 +497,11 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
         spnVectorFieldWidth.addChangeListener(this);
         spnCutoff.addChangeListener(this);
         spnIntensityCutoff.addChangeListener(this);
+        spnIntensityCutoff.addChangeListener(this);
 
         pnMain.place(3, 0, pnVectors);
         pnMain.place(4, 0, pnCutoff);
+        pnMain.place(5, 0, pnScan);
 
         Help help = new Help();
         help.setPreferredSize(pnMain.getSize());
@@ -466,6 +527,7 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
         walk.getButtonClose().addActionListener(this);
         bnRun.addActionListener(this);
         bnSave.addActionListener(this);
+        bnScan.addActionListener(this);
 
         // Finalize
         addWindowListener(this);
@@ -482,6 +544,8 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
         settings.record("spnIntensityCutoff", spnIntensityCutoff, "0.2");
         settings.record("spnVectorFieldScale", spnVectorFieldLength, "0.7");
         settings.record("spnVectorFieldScale", spnVectorFieldWidth, "1.0");
+        settings.record("start", spnScanStart, "17");
+        settings.record("end", spnScanEnd, "51");
 
 
         settings.loadRecordedItems();
@@ -499,6 +563,8 @@ class RAFTDialogue<T extends RealType<T>> extends JDialog implements ActionListe
         params.showVectorOverlay = showVectorFieldOverlay.isSelected();
         params.vector_length = spnVectorFieldLength.get()/100.0;
         params.vector_width =  spnVectorFieldWidth.get();
+        params.start = (int) spnScanStart.get();
+        params.end = (int) spnScanEnd.get();
 
     }
 
@@ -552,10 +618,14 @@ class RAFTParameters {
     public double vector_length;
     public double vector_width;
 
+    public int width;
+    public int height;
+
     public boolean firstResults = Boolean.FALSE;
 
     public Color vector_color = new Color(255, 227, 0);
-
+    public int start = 17;
+    public int end = 101;
 
 
     public void getMacroParameters(String options) {

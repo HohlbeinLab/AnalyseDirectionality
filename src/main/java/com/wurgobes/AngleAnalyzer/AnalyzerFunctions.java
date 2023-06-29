@@ -3,9 +3,7 @@ package com.wurgobes.AngleAnalyzer;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.*;
-import ij.process.ColorProcessor;
-import ij.process.ImageConverter;
-import ij.process.ImageProcessor;
+import ij.process.*;
 import net.imglib2.Point;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -84,17 +82,25 @@ public class AnalyzerFunctions {
         return  Pair.of(map_width, fft_stack);
     }
 
-    static void calcSigMap(ArrayList<ArrayList<Double>> csv_data, ArrayList<Boolean> sig_map, double intensity_cutoff) {
+    static ImageProcessor calcSigMap(ArrayList<ArrayList<Double>> csv_data, ArrayList<Boolean> sig_map, RAFTParameters params) {
+        ImageProcessor sig_ip = new ByteProcessor(params.width, params.height);
         //0, 1, 2,     3,      4,     5,           6,     7,         8+
         //x, y, width, height, index, mask median, angle, relevance, FT data
         for (ArrayList<Double> c : csv_data) {
-            if (c.get(5) > (intensity_cutoff * 255)) {
+            if (c.get(5) > (params.intensity_cutoff * 255)) {
                 sig_map.add(Boolean.TRUE);
+                sig_ip.setColor(Color.white);
             } else {
                 sig_map.add(Boolean.FALSE);
+                sig_ip.setColor(Color.black);
             }
 
+            int x = c.get(0).intValue();
+            int y = c.get(1).intValue();
+            sig_ip.fillRect(x, y, params.window, params.window);
+
         }
+        return sig_ip;
     }
 
     static void calcVectorMap(ArrayList<Roi> rois, ArrayList<ArrayList<Double>> csv_data, int window, double vector_length, double vector_width, double cutoff){
@@ -151,9 +157,9 @@ public class AnalyzerFunctions {
                 // skip edge values
                 if(
                         i % map_width < half_window || // left
-                                i % map_width >= map_width - half_window || // right
-                                i < map_width * half_window || // top
-                                i / map_width > map_length - half_window // bottom
+                        i % map_width >= map_width - half_window || // right
+                        i < map_width * half_window || // top
+                        i / map_width > map_length - half_window // bottom
                 )
                     order_parameter_submap.add(Double.NaN);
                 else {
@@ -173,8 +179,10 @@ public class AnalyzerFunctions {
             order_parameter_map.add(order_parameter_submap);
         }
 
-        if(order_stack == null)
-            order_stack = new ImageStack(width, height);
+
+        order_stack = new ImageStack(width, height);
+
+
 
         int neighbourhood_size = 3;
         for (int i = 0; i < order_parameter_map.size(); i++) { // single neighbourhood size
@@ -199,8 +207,7 @@ public class AnalyzerFunctions {
                 order_ip.fillRect(x, y, window, window);
             }
             addLutLegend(order_ip, orderLUT, "Order Parameter", 1024, 0.0, 1.0);
-            if(order_stack.size() == order_parameter_map.size())
-                order_stack.deleteSlice(i+1);
+
             order_stack.addSlice("NH " + neighbourhood_size, order_ip, i);
             neighbourhood_size += 2;
 
@@ -215,7 +222,7 @@ public class AnalyzerFunctions {
 
 
         order_plot.addPoints(average_order_hist_x, average_order_hist, null, Plot.toShape("line"), "");
-        order_plot.show();
+
 
         return order_stack;
     }
@@ -259,7 +266,7 @@ public class AnalyzerFunctions {
         for(int i = 1; i <= fft_stack.size(); i++){
             ImageProcessor fft_slice = fft_stack.getProcessor(i);
             ImagePlus fft_dummy = new ImagePlus("dummy", fft_slice);
-            fft_dummy.setRoi(0, 3, (fft_dummy.getWidth()/2), 14);
+            fft_dummy.setRoi(0, 3, (fft_dummy.getWidth()/2), Math.min(fft_dummy.getHeight(), 22));
             ProfilePlot profilePlot = new ProfilePlot(fft_dummy);
             double[] profile = profilePlot.getProfile();
 
