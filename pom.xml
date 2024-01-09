@@ -9,7 +9,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>35.1.1</version>
+		<version>36.0.0</version>
 	</parent>
 
 	<groupId>com.wurgobes</groupId>
@@ -43,17 +43,6 @@
 			</roles>
 		</contributor>
 	</contributors>
-    <build>
-        <plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<release>8</release>
-				</configuration>
-			</plugin>
-        </plugins>
-    </build>
 
     <developers>
 		<developer>

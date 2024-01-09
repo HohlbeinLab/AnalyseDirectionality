@@ -118,7 +118,7 @@ public class util {
 
         // in pi radians
         int start = 0;
-        int end = 2;
+        int end = 1;
         int length = Math.abs(end-start);
 
         float[][] temp = new float[(int) Math.ceil(length/angleprecision)+1][freq.length];

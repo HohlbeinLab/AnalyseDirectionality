@@ -46,7 +46,7 @@ public class AnalyzerFunctions {
                 int r_height = result.getHeight();
                 int r_width = result.getWidth();
 
-                result.setRoi(0, 0, r_width/2, r_height);
+                result.setRoi(0, 0, r_width, r_height);
                 ProfilePlot profilePlot = new ProfilePlot(result);
                 double[] profile = profilePlot.getProfile();
 
@@ -59,7 +59,7 @@ public class AnalyzerFunctions {
                         max = profile[i];
 
                 }
-                double angle = index/(r_width/2.0)*180; //angle in degrees from 0-180
+                double angle = (double) index /(r_width)*180; //angle in degrees from 0-180
 
                 Color color = circularLut.getColor(angle, 180f, 0);
                 max_ip.setColor(color);
