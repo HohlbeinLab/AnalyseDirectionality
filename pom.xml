@@ -17,7 +17,7 @@
 	<version>0.1-SNAPSHOT</version>
 
 
-	<name>Angle Analyzer</name>
+	<name>Rotated Fourier Transform</name>
 	<description>A tool to analyze local gradients</description>
 	<url>https://github.com/HohlbeinLab/</url>
 	<inceptionYear>2023</inceptionYear>

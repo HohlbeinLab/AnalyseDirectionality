@@ -76,7 +76,7 @@ public class util {
      * NOTE: MODIFIES imp IN PLACE
      * */
     public static void MakeMask(ImagePlus imp){
-        if(imp.isStack()){
+        if(imp.hasImageStack()){
             ImageStack imageStack = imp.getStack();
             int slices = imageStack.getSize();
             for(int n = 1; n <= slices; n++){
@@ -121,11 +121,11 @@ public class util {
         int end = 1;
         int length = Math.abs(end-start);
 
-        float[][] temp = new float[(int) Math.ceil(length/angleprecision)+1][freq.length];
+        float[][] temp = new float[(int) Math.ceil(length/angleprecision)][freq.length];
 
         int index = 0;
 
-        for(double angle = start; angle <= end; angle += angleprecision){
+        for(double angle = start; angle <= end-angleprecision; angle += angleprecision){
             RotatedRectRoi roi = getRotatedRoi(center, sidelength, angle);
 
             imp.setRoi(roi);

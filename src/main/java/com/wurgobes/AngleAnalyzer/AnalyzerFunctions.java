@@ -20,21 +20,24 @@ import static com.wurgobes.AngleAnalyzer.util.addLutLegend;
 
 public class AnalyzerFunctions {
 
-    static Pair<Integer, ImageStack> run(ImagePlus imp, ImagePlus max_imp, ImagePlus mask, ArrayList<ArrayList<Double>> csv_data, ArrayList<Double> angle_map, OwnColorTable circularLut, double overlap, double buffer, int window, int height, int width){
+    static Pair<Integer, ImageStack> run(ImagePlus imp, ImagePlus max_imp, ImagePlus mask, ArrayList<ArrayList<Double>> csv_data, ArrayList<Double> angle_map, OwnColorTable circularLut, RFTParameters params){
         double min = Double.MAX_VALUE;
         double max = -1;
 
-        int winspace = (int) Math.ceil(window*(1-overlap));
-        int width_mod = (int) Math.floor(window + buffer * window);
-        int height_mod = (int) Math.floor(window + buffer * window);
+        int winspace = (int) Math.ceil(params.window*(1-params.overlap));
+        int width_mod = params.window + params.buffer;
+        int height_mod = params.window + params.buffer;
         int map_width = -1;
         ImageStack fft_stack = null;
 
-        ColorProcessor max_ip = (ColorProcessor) max_imp.getProcessor();
-        for(int y = (int) Math.floor(buffer*window); y <= height - height_mod; y += winspace){
-            for(int x = (int) Math.floor(buffer*window); x <= width - width_mod; x += winspace){
+        ColorProcessor max_ip = null;
+        if(!params.scanning_range & !params.macro_mode)
+            max_ip = (ColorProcessor) max_imp.getProcessor();
 
-                ImagePlus imp_window = util.applyWindow(imp, x, y, window, window);
+        for(int y = params.buffer; y <= params.height - height_mod; y += winspace){
+            for(int x = params.buffer; x <= params.width - width_mod; x += winspace){
+
+                ImagePlus imp_window = util.applyWindow(imp, x, y, params.window, params.window);
                 ImageProcessor allpeaks = util.obtainDistancesFFT(imp_window, 0.005f);
                 ImagePlus result = new ImagePlus("FFT", allpeaks);
 
@@ -61,18 +64,19 @@ public class AnalyzerFunctions {
                 }
                 double angle = (double) index /(r_width)*180; //angle in degrees from 0-180
 
-                Color color = circularLut.getColor(angle, 180f, 0);
-                max_ip.setColor(color);
-                max_ip.fillRect(x, y, window, window);
-                max_imp.repaintWindow();
+                if(!params.scanning_range & !params.macro_mode) {
+                    Color color = circularLut.getColor(angle, 180f, 0);
+                    max_ip.setColor(color);
+                    max_ip.fillRect(x, y, params.window, params.window);
+                    max_imp.repaintWindow();
+                }
 
-                double median = getMedian(mask.getProcessor(), x, y, window, window);
+
+                double median = getMedian(mask.getProcessor(), x, y, params.window, params.window);
 
                 angle_map.add(angle);
-                ArrayList<Double> curr_data = new ArrayList<>(Arrays.asList((double) x, (double) y, (double) window, (double) window, (double) index, median, angle));
-                ArrayList<Double> profile_data = DoubleStream.of(profile).boxed().collect(Collectors.toCollection(ArrayList::new));
-                curr_data.addAll(profile_data); // java bad
-                curr_data.addAll(profile_data); // java bad
+                ArrayList<Double> curr_data = new ArrayList<>(Arrays.asList((double) x, (double) y, (double) params.window, (double) params.window, (double) index, median, angle));
+                curr_data.addAll(DoubleStream.of(profile).boxed().collect(Collectors.toCollection(ArrayList::new))); // profile data
 
                 csv_data.add(curr_data);
             }
@@ -82,7 +86,7 @@ public class AnalyzerFunctions {
         return  Pair.of(map_width, fft_stack);
     }
 
-    static ImageProcessor calcSigMap(ArrayList<ArrayList<Double>> csv_data, ArrayList<Boolean> sig_map, RAFTParameters params) {
+    static ImageProcessor calcSigMap(ArrayList<ArrayList<Double>> csv_data, ArrayList<Boolean> sig_map, RFTParameters params) {
         ImageProcessor sig_ip = new ByteProcessor(params.width, params.height);
         //0, 1, 2,     3,      4,     5,           6,     7,         8+
         //x, y, width, height, index, mask median, angle, relevance, FT data
@@ -103,15 +107,15 @@ public class AnalyzerFunctions {
         return sig_ip;
     }
 
-    static void calcVectorMap(ArrayList<Roi> rois, ArrayList<ArrayList<Double>> csv_data, int window, double vector_length, double vector_width, double cutoff){
+    static void calcVectorMap(ArrayList<Roi> rois, ArrayList<ArrayList<Double>> csv_data, RFTParameters params){
         //0, 1, 2,     3,      4,     5,           6,     7,         8+
         //x, y, width, height, index, mask median, angle, relevance, FT data
         for (ArrayList<Double> c : csv_data) {
             double ad = c.get(7);
 
-            if (c.get(7) > cutoff) {  // Significant
-                Line line = getLineRoi(new Point((long) (c.get(0) + c.get(2) / 2), (long) (c.get(1) + c.get(3) / 2)), 0.1 * ad * window * vector_length, c.get(6) / 180f);
-                line.setStrokeWidth(vector_width);
+            if (c.get(7) > params.cutoff && c.get(5) > (params.intensity_cutoff * 255)) {  // Significant
+                Line line = getLineRoi(new Point((long) (c.get(0) + c.get(2) / 2), (long) (c.get(1) + c.get(3) / 2)), 0.1 * ad * params.window * params.vector_length, c.get(6) / 180f);
+                line.setStrokeWidth(params.vector_width);
                 rois.add(line);
             }
         }
@@ -121,15 +125,16 @@ public class AnalyzerFunctions {
         imp.setOverlay(overlay);
     }
 
-    static void applyOverlay(ImagePlus imp, Overlay overlay, ArrayList<Roi> rois){
+    static void applyOverlay(ImagePlus imp, Overlay overlay, ArrayList<Roi> rois, RFTParameters params){
         overlay.clear();
+        overlay.setStrokeColor(params.vector_color);
         for(Roi roi : rois)
             overlay.add(roi);
         imp.setOverlay(overlay);
 
     }
 
-    static ImageStack order_parameter(ArrayList<ArrayList<Double>> csv_data, ArrayList<Double> angle_map, ArrayList<Boolean> sig_map, OwnColorTable orderLUT, ImageStack order_stack, Plot order_plot, int map_width, int width, int height, int window){
+    static ImageStack order_parameter(ArrayList<ArrayList<Double>> csv_data, ArrayList<Double> angle_map, ArrayList<Boolean> sig_map, OwnColorTable orderLUT, Plot order_plot, int map_width, int width, int height, int window){
         /*
          * neighbourhood size search
          * from min to max size, steps of 2
@@ -180,7 +185,7 @@ public class AnalyzerFunctions {
         }
 
 
-        order_stack = new ImageStack(width, height);
+        ImageStack order_stack = new ImageStack(width, height);
 
 
 
