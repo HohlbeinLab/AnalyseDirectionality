@@ -344,7 +344,7 @@ public class util {
 
     public static double getMedian(ImageProcessor imp, int x, int y, int width, int height){
         imp.setRoi(x, y, width, height);
-        ImageStatistics stats = ImageStatistics.getStatistics(imp, AREA+MEAN+STD_DEV+MODE+MIN_MAX+RECT+MEDIAN, null);
+        ImageStatistics stats = ImageStatistics.getStatistics(imp, MEDIAN, null);
         return stats.median;
     }
 
