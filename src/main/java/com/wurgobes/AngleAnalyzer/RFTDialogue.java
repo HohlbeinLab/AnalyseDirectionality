@@ -3,10 +3,11 @@ package com.wurgobes.AngleAnalyzer;
 import gui_orientation.Credits;
 import gui_orientation.Help;
 import gui_orientation.WalkBarOrientationJ;
-import gui_orientation.components.GridPanel;
-import gui_orientation.components.GridToolbar;
-import gui_orientation.components.Settings;
-import gui_orientation.components.SpinnerDouble;
+import gui_orientation.components.*;
+import ij.IJ;
+import ij.gui.GUI;
+import ij.plugin.frame.Recorder;
+import net.imglib2.type.numeric.RealType;
 
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
@@ -16,11 +17,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-
-import ij.IJ;
-import ij.gui.GUI;
-import ij.plugin.frame.Recorder;
-import net.imglib2.type.numeric.RealType;
+import java.io.IOException;
 
 class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListener, ChangeListener, WindowListener, Runnable {
 
@@ -28,16 +25,16 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
     private final Settings settings = new Settings("RFT", IJ.getDirectory("plugins") + "RFT.txt");
     protected final RFTParameters params;
-    private final SpinnerDouble spnWindow = new SpinnerDouble(75, 3, 100000, 1);
+    private final SpinnerInteger spnWindow = new SpinnerInteger(75, 3, 100000, 1);
     private final SpinnerDouble spnOverlap = new SpinnerDouble(0.75, 0, 1, 0.01);
-    private final SpinnerDouble spnBuffer = new SpinnerDouble(0, 0, 100000, 1);
-    private final SpinnerDouble spnVectorFieldLength = new SpinnerDouble(70.0, 0, 10000, 1);
-    private final SpinnerDouble spnVectorFieldWidth = new SpinnerDouble(1.0, 0.1, 10, 0.1);
+    private final SpinnerInteger spnBuffer = new SpinnerInteger(0, 0, 100000, 1);
+    private final SpinnerDouble spnVectorFieldLength = new SpinnerDouble(100, 0, 10000, 1);
+    private final SpinnerInteger spnVectorFieldWidth = new SpinnerInteger(3, 1, 10, 1);
     private final SpinnerDouble spnCutoff = new SpinnerDouble(2.0, 0, 10, 0.1);
     private final SpinnerDouble spnIntensityCutoff = new SpinnerDouble(0, 0, 1, 0.01);
-    private final SpinnerDouble spnScanStart = new SpinnerDouble(21, 3, 100000, 1);
-    private final SpinnerDouble spnScanEnd = new SpinnerDouble(61, 3, 100000, 1);
-    private final SpinnerDouble spnScanStep = new SpinnerDouble(2, 2, 100000, 1);
+    private final SpinnerInteger spnScanStart = new SpinnerInteger(21, 3, 100000, 1);
+    private final SpinnerInteger spnScanEnd = new SpinnerInteger(61, 3, 100000, 1);
+    private final SpinnerInteger spnScanStep = new SpinnerInteger(2, 2, 100000, 1);
 
     private final JCheckBox showVectorFieldOverlay = new JCheckBox("Overlay", true);
     protected WalkBarOrientationJ walk = new WalkBarOrientationJ();
@@ -57,8 +54,11 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         this.angleAnalyzer = angleAnalyzer;
         this.params = params;
         setTitle("RFT");
-        if (params.macro_mode)
+        if (params.macro_mode) {
+            setParameters();
             start(Job.RUN);
+        }
+
     }
 
     @Override
@@ -135,8 +135,13 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
             angleAnalyzer.applyVectorField(params);
 
 
-        if (job == Job.SAVE && params.firstResults)
-            angleAnalyzer.saveData(params);
+        if (job == Job.SAVE && params.firstResults) {
+            try {
+                angleAnalyzer.saveData(params);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
         if (job == Job.CUTOFF && params.firstResults) {
             angleAnalyzer.AngleGraph(params);
@@ -258,8 +263,8 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         settings.record("spnOverlap", spnOverlap, "0.75");
         settings.record("spnCutoff", spnCutoff, "2");
         settings.record("spnIntensityCutoff", spnIntensityCutoff, "0.2");
-        settings.record("spnVectorFieldScale", spnVectorFieldLength, "0.7");
-        settings.record("spnVectorFieldScale", spnVectorFieldWidth, "1.0");
+        settings.record("spnVectorFieldScale", spnVectorFieldLength, "1");
+        settings.record("spnVectorFieldScale", spnVectorFieldWidth, "3.0");
         settings.record("start", spnScanStart, "17");
         settings.record("end", spnScanEnd, "51");
         settings.record("step", spnScanStep, "2");
@@ -272,27 +277,34 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
     }
 
     public void getParameters() {
-        params.buffer = (int) spnBuffer.get();
-        params.window = (int) spnWindow.get();
+        params.buffer = spnBuffer.get();
+        params.window = spnWindow.get();
         params.overlap = spnOverlap.get();
         params.intensity_cutoff = spnIntensityCutoff.get();
         params.cutoff = spnCutoff.get();
-        params.showVectorOverlay = showVectorFieldOverlay.isSelected();
+        params.vector_overlay = showVectorFieldOverlay.isSelected();
         params.vector_length = spnVectorFieldLength.get() / 100.0;
         params.vector_width = spnVectorFieldWidth.get();
-        params.start = (int) spnScanStart.get();
-        params.end = (int) spnScanEnd.get();
-        params.step = (int) spnScanStep.get();
+        params.start = spnScanStart.get();
+        params.end = spnScanEnd.get();
+        params.step = spnScanStep.get();
 
     }
 
     public void setParameters() {
         spnBuffer.set(params.buffer);
         spnWindow.set(params.window);
-        showVectorFieldOverlay.setSelected(params.showVectorOverlay);
+        showVectorFieldOverlay.setSelected(params.vector_overlay);
         spnOverlap.set(params.overlap);
         spnIntensityCutoff.set(params.intensity_cutoff);
         spnCutoff.set(params.cutoff);
+
+        spnScanStart.set(params.start);
+        spnScanEnd.set(params.end);
+        spnScanStep.set(params.step);
+
+        spnVectorFieldLength.set(params.vector_length*100);
+        spnVectorFieldWidth.set(params.vector_width);
     }
 
     private void recordMacroParameters() {
@@ -310,7 +322,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
         options += "vectorlength=" + spnVectorFieldLength.get() + " ";
         options += "vectorwidth=" + spnVectorFieldWidth.get() + " ";
-        options += params.showVectorOverlay ? "vectoroverlay=on " : "vectoroverlay=off ";
+        options += params.vector_overlay ? "vectoroverlay=on " : "vectoroverlay=off ";
 
         Recorder.record("run", plugin, options);
     }

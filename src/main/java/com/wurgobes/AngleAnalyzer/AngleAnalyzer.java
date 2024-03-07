@@ -21,10 +21,10 @@ SOFTWARE.
  */
 
 
-
 import ij.*;
-import ij.gui.*;
-
+import ij.gui.Overlay;
+import ij.gui.Plot;
+import ij.gui.Roi;
 import ij.process.ColorProcessor;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
@@ -38,12 +38,16 @@ import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import static com.wurgobes.AngleAnalyzer.AnalyzerFunctions.*;
-import static com.wurgobes.AngleAnalyzer.util.*;
+import static com.wurgobes.AngleAnalyzer.util.SaveCSV;
+import static com.wurgobes.AngleAnalyzer.util.addLutLegend;
 
 
 @Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer>Analyze Angles", priority = Priority.HIGH)
@@ -150,11 +154,18 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         }
     }
 
-    public void saveData(RFTParameters params){
-        //String path = "C:\\Users\\gobes001\\source\\repos\\Scratch\\ATF stuff analysis\\input\\" + imp.getShortTitle() + ".csv";
-        String path = "H:\\PhD\\Scratch\\ATF stuff analysis\\input\\" + imp.getShortTitle() + ".csv";
+    public void saveData(RFTParameters params) throws IOException {
+        Path path;
+        if(params.save_string == null) {
+            path = Paths.get("C:\\Users\\gobes001\\source\\repos\\Scratch\\ATF stuff analysis\\input\\window" + params.window + "_" + imp.getShortTitle() + ".csv");
+        }
+        else {
+            Files.createDirectories(Paths.get(params.save_string));
+            path = Paths.get(params.save_string, "window" + params.window + "_" + imp.getShortTitle() + ".csv");
+        }
+
         logService.info("Saving to " + path);
-        SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), Paths.get(path));
+        SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), path);
     }
 
     public void runVector(RFTParameters params){
@@ -191,8 +202,15 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         }
         params.firstResults = Boolean.TRUE;
 
-        if(params.macro_mode)
-            saveData(params);
+        if(params.macro_mode){
+            try {
+                saveData(params);
+            } catch (IOException e) {
+                logService.error("Failed to save data to path: " + params.save_string);
+                throw new RuntimeException(e);
+            }
+        }
+
 
         logService.info("Angle Analyzing Done");
     }
@@ -215,8 +233,10 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             max_imp.repaintWindow();
         }
 
-        calculateVectorField(params);
-        calculateOrder(params);
+        if (params.vector_overlay)
+            calculateVectorField(params);
+        if (params.order)
+            calculateOrder(params);
 
         if(!params.macro_mode) {
             AngleGraph(params);
@@ -311,7 +331,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         ij.ui().showUI();
 
         //macro_params = "buffer=0 window=250 overlap=0.5";
-        ImagePlus imp = new ij.io.Opener().openImage("H:\\PhD\\Scratch\\2D FFT images\\rotated_center.tif");
+        ImagePlus imp = new ij.io.Opener().openImage("C:\\Users\\gobes001\\source\\repos\\Scratch\\2D FFT images\\mosaic2.tif");
 
 
         imp.show();

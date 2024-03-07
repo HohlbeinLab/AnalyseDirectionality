@@ -125,7 +125,7 @@ public class util {
 
         int index = 0;
 
-        for(double angle = start; angle <= end-angleprecision; angle += angleprecision){
+        for(double angle = start; angle <= end-angleprecision/2; angle += angleprecision){
             RotatedRectRoi roi = getRotatedRoi(center, sidelength, angle);
 
             imp.setRoi(roi);
