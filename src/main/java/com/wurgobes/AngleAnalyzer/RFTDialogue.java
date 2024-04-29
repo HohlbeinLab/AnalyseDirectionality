@@ -17,7 +17,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.io.IOException;
 
 class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListener, ChangeListener, WindowListener, Runnable {
 
@@ -37,6 +36,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
     private final SpinnerInteger spnScanStep = new SpinnerInteger(2, 2, 100000, 1);
 
     private final JCheckBox showVectorFieldOverlay = new JCheckBox("Overlay", true);
+    private final JCheckBox saveDuringScan = new JCheckBox("Save Scans", true);
     protected WalkBarOrientationJ walk = new WalkBarOrientationJ();
 
     protected JButton bnRun = new JButton("Run");
@@ -56,7 +56,10 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         setTitle("RFT");
         if (params.macro_mode) {
             setParameters();
-            start(Job.RUN);
+            if(params.scanning_range)
+                start(Job.SCAN);
+            else
+                start(Job.RUN);
         }
 
     }
@@ -135,13 +138,8 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
             angleAnalyzer.applyVectorField(params);
 
 
-        if (job == Job.SAVE && params.firstResults) {
-            try {
-                angleAnalyzer.saveData(params);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        if (job == Job.SAVE && params.firstResults)
+            angleAnalyzer.saveData(params);
 
         if (job == Job.CUTOFF && params.firstResults) {
             angleAnalyzer.AngleGraph(params);
@@ -205,6 +203,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         pnScan.place(4, 0, new JLabel("Window End"));
         pnScan.place(4, 1, spnScanEnd);
         pnScan.place(5, 1, bnScan);
+        pnScan.place(6, 1, saveDuringScan);
 
         GridPanel pnCutoff = new GridPanel("Cutoffs");
         pnCutoff.place(2, 0, new JLabel("std Cutoff"));
@@ -263,7 +262,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         settings.record("spnOverlap", spnOverlap, "0.75");
         settings.record("spnCutoff", spnCutoff, "2");
         settings.record("spnIntensityCutoff", spnIntensityCutoff, "0.2");
-        settings.record("spnVectorFieldScale", spnVectorFieldLength, "1");
+        settings.record("spnVectorFieldScale", spnVectorFieldLength, "100");
         settings.record("spnVectorFieldScale", spnVectorFieldWidth, "3.0");
         settings.record("start", spnScanStart, "17");
         settings.record("end", spnScanEnd, "51");
@@ -288,6 +287,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         params.start = spnScanStart.get();
         params.end = spnScanEnd.get();
         params.step = spnScanStep.get();
+        params.scan_save = saveDuringScan.isSelected();
 
     }
 
@@ -305,6 +305,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
         spnVectorFieldLength.set(params.vector_length*100);
         spnVectorFieldWidth.set(params.vector_width);
+        saveDuringScan.setSelected(params.scan_save);
     }
 
     private void recordMacroParameters() {
@@ -322,7 +323,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
         options += "vectorlength=" + spnVectorFieldLength.get() + " ";
         options += "vectorwidth=" + spnVectorFieldWidth.get() + " ";
-        options += params.vector_overlay ? "vectoroverlay=on " : "vectoroverlay=off ";
+        options += params.vector_overlay ? "vectoroverlay=True " : "vectoroverlay=False ";
 
         Recorder.record("run", plugin, options);
     }

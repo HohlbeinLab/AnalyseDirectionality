@@ -29,6 +29,7 @@ public class RFTParameters {
     public int step = 50;
 
     public boolean scanning_range = Boolean.FALSE;
+    public boolean scan_save = Boolean.TRUE;
 
     public String save_string = null;
 
@@ -44,6 +45,7 @@ public class RFTParameters {
         end = Integer.parseInt(Macro.getValue(options, "end", "300"));
         step = Integer.parseInt(Macro.getValue(options, "step", "50"));
         scanning_range = Boolean.parseBoolean(Macro.getValue(options, "scanning_range", "False"));
+        scan_save = Boolean.parseBoolean(Macro.getValue(options, "scan_save", "True"));
 
         // Vector Field
         vector_overlay = Macro.getValue(options, "vectoroverlay", "off").equals("on");

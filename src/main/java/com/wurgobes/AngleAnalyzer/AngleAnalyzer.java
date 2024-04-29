@@ -154,18 +154,23 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         }
     }
 
-    public void saveData(RFTParameters params) throws IOException {
-        Path path;
-        if(params.save_string == null) {
-            path = Paths.get("C:\\Users\\gobes001\\source\\repos\\Scratch\\ATF stuff analysis\\input\\window" + params.window + "_" + imp.getShortTitle() + ".csv");
-        }
-        else {
-            Files.createDirectories(Paths.get(params.save_string));
-            path = Paths.get(params.save_string, "window" + params.window + "_" + imp.getShortTitle() + ".csv");
-        }
+    public void saveData(RFTParameters params) {
+        try {
+            Path path;
+            if(params.save_string == null) {
+                path = Paths.get("C:\\Users\\gobes001\\source\\repos\\Scratch\\ATF stuff analysis\\input\\window" + params.window + "_" + imp.getShortTitle() + ".csv");
+            }
+            else {
+                Files.createDirectories(Paths.get(params.save_string));
+                path = Paths.get(params.save_string, "window" + params.window + "_" + imp.getShortTitle() + ".csv");
+            }
 
-        logService.info("Saving to " + path);
-        SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), path);
+            logService.info("Saving to " + path);
+            SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), path);
+        } catch (IOException e) {
+            logService.error("Failed to save data to path: " + params.save_string);
+            throw new RuntimeException(e);
+        }
     }
 
     public void runVector(RFTParameters params){
@@ -202,13 +207,9 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         }
         params.firstResults = Boolean.TRUE;
 
-        if(params.macro_mode){
-            try {
-                saveData(params);
-            } catch (IOException e) {
-                logService.error("Failed to save data to path: " + params.save_string);
-                throw new RuntimeException(e);
-            }
+        if(params.macro_mode || (params.scanning_range && params.scan_save)){
+            saveData(params);
+
         }
 
 
@@ -308,20 +309,24 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
             // For each window collect the angle dist and the order graph
             params.window = i;
             runVector(params);
+            if(!params.macro_mode) {
+                if (angle_stack == null)
+                    angle_stack = new ImageStack(hist_alt.getProcessor().getWidth(), hist_alt.getProcessor().getHeight());
+                if (order_graph_stack == null)
+                    order_graph_stack = new ImageStack(order_plot.getProcessor().getWidth(), order_plot.getProcessor().getHeight());
 
-            if (angle_stack == null)
-                angle_stack = new ImageStack(hist_alt.getProcessor().getWidth(), hist_alt.getProcessor().getHeight());
-            if (order_graph_stack == null)
-                order_graph_stack = new ImageStack(order_plot.getProcessor().getWidth(), order_plot.getProcessor().getHeight());
-
-            angle_stack.addSlice("window " + i, hist_alt.getProcessor().duplicate());
-            order_graph_stack.addSlice("window " + i, order_plot.getProcessor().duplicate());
+                angle_stack.addSlice("window " + i, hist_alt.getProcessor().duplicate());
+                order_graph_stack.addSlice("window " + i, order_plot.getProcessor().duplicate());
+            }
         }
 
-        ImagePlus angle_window_sweep = new ImagePlus("Angle vs Window", angle_stack);
-        ImagePlus order_window_sweep = new ImagePlus("Order vs Window", order_graph_stack);
-        angle_window_sweep.show();
-        order_window_sweep.show();
+        if (!params.macro_mode){
+            ImagePlus angle_window_sweep = new ImagePlus("Angle vs Window", angle_stack);
+            ImagePlus order_window_sweep = new ImagePlus("Order vs Window", order_graph_stack);
+            angle_window_sweep.show();
+            order_window_sweep.show();
+        }
+
     }
 
     // Only run from the IDE
