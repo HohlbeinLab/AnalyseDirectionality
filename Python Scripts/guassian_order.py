@@ -1,5 +1,7 @@
 import os
 import pickle
+from typing import Any, Iterable
+
 import matplotlib as mpl
 import numpy as np
 import matplotlib.pyplot as plt
@@ -46,7 +48,7 @@ def calc_order_param(angs: np.ndarray, ints: np.ndarray, stds: np.ndarray, centr
     return [np.nanmean(orders), np.nanmean(ord_stds), np.nanmean(ord_ints)]
 
 
-def flatten(lst: list[list]) -> list:
+def flatten(lst: Iterable[Iterable]) -> Iterable:
     flat_list = []
     for r in lst:
         flat_list += r
@@ -243,8 +245,8 @@ def random_interval(start_val, end_val, no=1) -> np.ndarray:
         return start_val + (end_val - start_val) * np.random.random(no)
 
 
-def weighted_nanmean(A, weights=1):
-    if type(A) == list and not A:
+def weighted_nanmean(A: [Iterable], weights: [Any] = 1):
+    if isinstance(A, list) and not A:
         return np.nan
     A = np.array(A)
     weights = np.array(weights)
@@ -283,9 +285,11 @@ def weighted_nanstd(A, weights=None):
     variance = weighted_nanmean((A - average) ** 2, weights=weights)
     return np.sqrt(variance)
 
+
 def make_dir(*paths):
     if not os.path.isdir(os.path.join(*paths)):
         os.makedirs(os.path.join(*paths))
+
 
 if __name__ == "__main__":
     #np.seterr(all='raise')
@@ -295,28 +299,27 @@ if __name__ == "__main__":
     st = 0 - buff
     en = 180 + buff
     max_neighbourhood = 11
+    filter_edges = 0  # Remove this number of cells from the edges
 
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    core_path = r"DP1"
+    core_path = r""
 
-    loadpath = os.path.join(".","input", core_path)
+    loadpath = os.path.join(".", "input", core_path)
 
-    names = "all"
-    #names = ["window300_outmost"]
+    #names = "all"
+    names = ["window100_15cm_coronal_top_A_crop"]
 
     excel_book = Workbook()
     excel_book.remove(excel_book.active)
     filepaths = []
-    #raise NotImplementedError("Add support to filter edges?")
 
     if names == "all":
-
         for path, subdirs, files in os.walk(loadpath):
             for file in files:
                 filepaths.append(os.path.join(path, file))
-    else:
+    elif names:
         errors = []
 
         for name in names:
@@ -326,18 +329,16 @@ if __name__ == "__main__":
                 filepaths.append(os.path.join(loadpath, f"{name}.csv"))
         if errors:
             raise Exception(f"Could not find the following files: {errors}")
-
-
-
-
+    else:
+        raise Exception("No files to process. Define 'names'")
 
     for filepath in filepaths:
         filename = os.path.basename(filepath)[:-4]
-        if "\\" in filename or "/" in filename: # Some POSIX fun
+        if "\\" in filename or "/" in filename:  # Some POSIX fun
             filename = filename.split("\\")[-1].split("/")[-1][:-4]
         folder_path = os.path.dirname(filepath)
         results_path = os.path.join(".", "results", *folder_path.split(os.sep)[2:], filename)
-        pickle_path = os.path.join(".", "pickles", *folder_path.split(os.sep)[2:], filename)
+        pickle_path = os.path.join(".", "pickles", *folder_path.split(os.sep)[2:])
 
         print(f"{filename}")
         excel_sheet = excel_book.create_sheet(filename)
@@ -493,8 +494,10 @@ if __name__ == "__main__":
                           f"{np.nanmean(int_avg_map[i])}", f"{np.nanstd(int_avg_map[i])}",
                           f"{np.nanmean(std_avg_map[i])}", f"{np.nanstd(std_avg_map[i])}"])
             print(lines[-1])
-            np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_angle_raw.csv"), np.array(ang_map), delimiter=",")
-            np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_intensity_raw.csv"), np.array(int_avg_map[i]), delimiter=",")
+            np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_angle_raw.csv"),
+                       np.array(ang_map), delimiter=",")
+            np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_intensity_raw.csv"),
+                       np.array(int_avg_map[i]), delimiter=",")
             if show_graph: plt.show()
 
         for row in range(1, len(lines) + 1):
@@ -520,11 +523,13 @@ if __name__ == "__main__":
         ax3.set_title(f"Sum Intensities")
         plt.savefig(os.path.join(results_path, f"{filename}_overall.png"))
         if show_graph: plt.show()
-        np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_angle_raw.csv"), np.array(peak_angle_map),delimiter=",")
-        np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_intensity_raw.csv"), np.array(peak_intensity_map),delimiter=",")
+        np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_angle_raw.csv"), np.array(peak_angle_map),
+                   delimiter=",")
+        np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_intensity_raw.csv"),
+                   np.array(peak_intensity_map), delimiter=",")
 
         # Parameters
-        neigh_sizes = np.arange(3, min([len(xs), len(ys), max_neighbourhood+2]), 2, dtype=int)
+        neigh_sizes = np.arange(3, min([len(xs), len(ys), max_neighbourhood + 2]), 2, dtype=int)
 
         labels = ["ang order", "ang std order", "std intensity", "intensity", "intensity+min_val",
                   "int*min_val*ang_order"]
@@ -547,7 +552,6 @@ if __name__ == "__main__":
 
             stats_file = open(os.path.join(results_path, "csv", f"{filename}_{ang}_stats.csv"), "w")
 
-
             fig, axes = plt.subplots(len(neigh_sizes) if len(neigh_sizes) > 1 else 2,
                                      len(labels) if ang != "all" else len(labels_all), dpi=400,
                                      figsize=(
@@ -565,8 +569,8 @@ if __name__ == "__main__":
                 if ang == "all":
                     order_params = [[[] for _ in range(len(xs))] for _ in range(len(ys))]
                     for map_ref in [all_angles_map, sig_angles_map, all_matched_angles_map]:
-                        for y in range(0, len(ys) - neigh_size + 1):
-                            for x in range(0, len(xs) - neigh_size + 1):
+                        for y in range(filter_edges, len(ys) - neigh_size + 1 - filter_edges):
+                            for x in range(filter_edges, len(xs) - neigh_size + 1 - filter_edges):
                                 all_angles_local = [map_ref[y + dy][x:x + neigh_size] for dy in range(neigh_size)]
                                 centre = all_angles_local[neigh_size // 2].pop(neigh_size // 2)
 
@@ -580,21 +584,22 @@ if __name__ == "__main__":
                     for imshow in range(len(labels_all)):
                         curr_map = np.array([[v[imshow] if v else np.nan for v in vs] for vs in order_params])
                         im, cbar = heatmap(curr_map, ax_imshow=axes[n_index, imshow], vmin=0, vmax=1, cmap=cmap_viridis)
-                        print(f"{labels_all[imshow]}: mean: {np.nanmean(curr_map):.2f}, std: {np.nanstd(curr_map):.2f}")
-                        stats_file.write(f", {np.nanmean(curr_map):.2f}, {np.nanstd(curr_map):.2f}")
-                        line += [f"{np.nanmean(curr_map):.2f}", f"{np.nanstd(curr_map):.2f}"]
-                        np.savetxt(os.path.join(results_path, "raw", f"{filename}_order_{labels_all[imshow]}_neighbourhood_{neigh_sizes[n_index]}_raw.csv"), np.array(curr_map),delimiter=",")
-
-
-                        # add weighting by intensity map
+                        mean = np.nanmean(curr_map)
+                        std = np.nanstd(curr_map)
+                        print(f"{labels_all[imshow]}: mean: {mean:.2f}, std: {std:.2f}")
+                        stats_file.write(f", {mean:.2f}, {std:.2f}")
+                        line += [f"{mean:.2f}", f"{std:.2f}"]
+                        np.savetxt(os.path.join(results_path, "raw",
+                                                f"{filename}_order_{labels_all[imshow]}_neighbourhood_{neigh_sizes[n_index]}_raw.csv"),
+                                   np.array(curr_map), delimiter=",")
 
                     for ax, col in zip(axes[0], labels_all):
                         ax.set_title(col)
                 else:
 
                     order_params = [[np.full(len(labels), np.nan) for _ in range(len(xs))] for _ in range(len(ys))]
-                    for y in range(0, len(ys) - neigh_size + 1):
-                        for x in range(0, len(xs) - neigh_size + 1):
+                    for y in range(filter_edges, len(ys) - neigh_size + 1 - filter_edges):
+                        for x in range(filter_edges, len(xs) - neigh_size + 1 - filter_edges):
                             # select: sig pars, bg pars, std error, residuals, min_val
                             all_angles_local = [matched_angles_map[i][y + dy][x:x + neigh_size] for dy in
                                                 range(neigh_size)]
@@ -625,11 +630,13 @@ if __name__ == "__main__":
                         im, cbar = heatmap(curr_map, ax_imshow=axes[n_index, imshow], vmin=vmins[imshow],
                                            vmax=vmaxs[imshow],
                                            cmap=cmap_viridis)
-                        print(f"{labels[imshow]}: mean: {np.nanmean(curr_map):.2f}, std: {np.nanstd(curr_map):.2f}")
-                        stats_file.write(f", {np.nanmean(curr_map):.2f}, {np.nanstd(curr_map):.2f}")
-                        line += [f"{np.nanmean(curr_map):.2f}", f"{np.nanstd(curr_map):.2f}"]
+                        mean = weighted_nanmean(curr_map)
+                        std = weighted_nanstd(curr_map)
+                        print(f"{labels[imshow]}: mean: {mean:.2f}, std: {std:.2f}")
+                        stats_file.write(f", {mean:.2f}, {std:.2f}")
+                        line += [f"{mean:.2f}", f"{std:.2f}"]
                         np.savetxt(os.path.join(results_path, "raw", f"{filename}_order_{labels[imshow]}_raw.csv"),
-                                   np.array(curr_map),delimiter=",")
+                                   np.array(curr_map), delimiter=",")
 
                     for ax, col in zip(axes[0], labels):
                         ax.set_title(col)
@@ -677,6 +684,8 @@ if __name__ == "__main__":
             excel_sheet.cell(row=row_offset + 3, column=i + 1, value=val)
 
         if not show_graph: plt.close('all')
+        np.savetxt(os.path.join(results_path, "raw", f"{filename}_intensity_map_raw.csv"),
+                   np.array(img_intensity_map), delimiter=",")
 
-
-    excel_book.save(os.path.join(loadpath, f"{core_path}_overview.xlsx"))
+    excel_book.save(os.path.join(".", "results", core_path if core_path else filename,
+                                 f"{core_path if core_path else filename}_overview.xlsx"))

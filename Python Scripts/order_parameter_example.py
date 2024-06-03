@@ -11,7 +11,7 @@ def get_angles(base_ang, angle_interval, neigh_size, base_len, length_interval):
 def get_angles2(angle, lengths):
     return np.cos(np.radians(angle))*lengths, np.sin(np.radians(angle))*lengths
 
-def plot_dist(neigh_size=5, base_ang =45, angle_interval=50, base_len=0.4, length_interval=0.5, fixed_centre=None):
+def plot_dist(neigh_size=3, base_ang =45, angle_interval=50, base_len=0.4, length_interval=0.5, fixed_centre=None):
     centre_idx = (neigh_size**2-1)//2
     colors = ['k' for _ in range(neigh_size ** 2)]
     colors[centre_idx] = 'y'
@@ -19,7 +19,7 @@ def plot_dist(neigh_size=5, base_ang =45, angle_interval=50, base_len=0.4, lengt
     grid = np.meshgrid(np.linspace(0, 1,  neigh_size), np.linspace(0, 1, neigh_size))
     grid2 = grid[:]
 
-    fig, ax = plt.subplots(dpi=300)
+    fig, ax = plt.subplots(dpi=600, figsize=(4.8, 4.8))
 
     grid1_angles = get_angles(base_ang, angle_interval, neigh_size, base_len, length_interval)
     grid2_angles = get_angles(base_ang, angle_interval, neigh_size, base_len, length_interval)
@@ -66,6 +66,7 @@ def plot_dist(neigh_size=5, base_ang =45, angle_interval=50, base_len=0.4, lengt
 
 #plot_dist(angle_interval=0, length_interval=0)
 #plot_dist(angle_interval=90, length_interval=0)
-#plot_dist(base_ang=90, angle_interval=180, length_interval=0.4, fixed_centre=[[100, 0.4, 0], [80,0.4,0]]) # 0
-plot_dist(base_ang=45, angle_interval=0, length_interval=0, fixed_centre=[[-40, 0.4, 0], [-50,0.4,0]]) # 1
+plot_dist(base_ang=90, angle_interval=180, length_interval=0.4, fixed_centre=[[100, 0.4, 0], [80,0.4,0]]) # 0
+plot_dist(base_ang=45, angle_interval=0, length_interval=0, fixed_centre=[[-40, 0.4, 0], [-50,0.4,0]]) # -1
+plot_dist(base_ang=45, angle_interval=0, length_interval=0, fixed_centre=[[40, 0.4, 0], [50,0.4,0]]) # 1
 #plot_dist(angle_interval=180, length_interval=0.4)

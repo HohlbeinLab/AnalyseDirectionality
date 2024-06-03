@@ -158,7 +158,7 @@ public class AngleAnalyzer <T extends RealType<T>> implements Command {
         try {
             Path path;
             if(params.save_string == null) {
-                path = Paths.get("C:\\Users\\gobes001\\source\\repos\\Scratch\\ATF stuff analysis\\input\\window" + params.window + "_" + imp.getShortTitle() + ".csv");
+                path = Paths.get("C:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\Python Scripts\\input\\window" + params.window + "_" + imp.getShortTitle() + ".csv");
             }
             else {
                 Files.createDirectories(Paths.get(params.save_string));

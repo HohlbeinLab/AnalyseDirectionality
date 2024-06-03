@@ -1,0 +1,11 @@
+#RFT
+#Thu May 23 15:22:50 CEST 2024
+end=61
+spnBuffer=0
+spnCutoff=2.0
+spnIntensityCutoff=0.2
+spnOverlap=0.75
+spnVectorFieldScale=3
+spnWindow=50
+start=50
+step=2
