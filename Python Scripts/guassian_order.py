@@ -12,6 +12,143 @@ from tqdm import tqdm
 import warnings
 from openpyxl import Workbook
 from astropy.stats import circmean, circstd
+from multiprocessing import Pool
+import time
+
+
+class FittingClass:
+    """
+    Class structure has been utilised to support multithreading more efficiently
+    Without this implementation a naive approach would mean heavy slowdown for small samples
+    The class takes in a set of constants that are used to define the x-axis angles
+    as well as certain fitting parameters.
+    """
+
+    def __init__(self, angles, p_per_a, en, st, pts, max_gausses=2, plot=False):
+        self.min_value = None
+        self.arr = None
+        self.row_idx = None
+        self.plot = plot
+        self.max_gausses = max_gausses
+        self.angles = angles
+        self.p_per_a = p_per_a
+        self.en = en
+        self.st = st
+        self.pts = pts
+
+    def fit_gaussian(self) -> tuple:
+        ax_plot = guass_fig = ax_residual = None
+        if self.plot:
+            guass_fig = plt.figure(1)
+            ax_plot = guass_fig.add_axes((.1, .3, .8, .6))
+            ax_residual = guass_fig.add_axes((.1, .1, .8, .2))
+
+        gauss_offset = np.argmin(self.arr)
+        rolled_arr = np.roll(self.arr, -gauss_offset)
+        params = covariance = residuals = False
+        peaks, details = find_peaks(rolled_arr, prominence=[0.12], width=[0], rel_height=0.33, distance=5)
+
+        gausses = min(self.max_gausses + 1, len(peaks) + 1)
+        r = np.arange(0, gausses - 1, 1)
+        if len(peaks) > gausses:
+            r = details["widths"].argsort()[::-1][:gausses]
+
+        # mean, amplitude, width
+        guess = [self.angles[-1] // 2, np.max(self.arr) * 0.01, self.angles[-1] / 8]  # base
+
+        bounds = [
+            [0, 0, 0],
+            [self.angles[-1], max(0.1 * np.max(self.arr), 0.001), self.angles[-1] / 4]
+        ]
+
+        for i in r:
+            if i < len(peaks):
+                guess += [peaks[i] / self.p_per_a, rolled_arr[peaks[i]], details["widths"][i]]
+                bounds[0] += [peaks[i] / self.p_per_a * 0.99, 0.05 * rolled_arr[peaks[i]], details["widths"][i] * 0.05]
+                bounds[1] += [peaks[i] / self.p_per_a * 1.01, 1.5 * rolled_arr[peaks[i]], details["widths"][i] * 5]
+            else:
+                guess += [self.angles[-1] // 2, np.max(rolled_arr) * 0.25, self.angles[-1] / 20]
+                bounds[0] += [0, 0, 0]
+                bounds[1] += [self.angles[-1], 1.1 * np.max(self.arr), self.angles[-1] / 4]
+
+        try:
+            params, covariance = curve_fit(self.fit_gauss, self.angles, rolled_arr, p0=guess, bounds=bounds)
+            for i in range(0, len(params), 3):
+                params[i] = (params[i] + gauss_offset / self.p_per_a) % 180
+
+            shifted_params1 = params.copy()
+            shifted_params2 = params.copy()
+            if self.plot:
+
+                for i in range(0, len(params), 3):
+                    shifted_params1[i] -= self.en
+                    shifted_params2[i] += self.en
+
+                    #ax_plot.plot(angles, gauss(angles, *shifted_params1[i:i + 3]), c='lightgreen')
+                    #ax_plot.plot(angles, gauss(angles, *shifted_params2[i:i + 3]), c='darkgreen')
+                    #ax_plot.plot(angles, gauss(angles, *params[i:i + 3]), 'r-')
+
+            sum_fit = (gauss(self.angles, *params) +
+                       gauss(self.angles, *shifted_params1) +
+                       gauss(self.angles, *shifted_params2))
+            residuals = sum_fit - self.arr
+
+            if self.plot:
+                ax_plot.plot(self.angles, sum_fit, 'b-', label='sum fit')
+                ax_residual.plot(self.angles, residuals)
+
+        except RuntimeError as err:
+            print(err)
+        except Exception as err:
+            plt.figure()
+            plt.title(f"{self.row_idx}")
+            plt.plot(self.angles, self.arr, c='k', label="data")
+            plt.plot(self.angles, rolled_arr, c='b', label="rolled")
+            plt.legend()
+            plt.show()
+            raise err
+
+        if self.plot:
+            ax_plot.set_title(f"i: {self.row_idx}")
+            ax_plot.stairs(self.arr, np.append(self.angles, self.angles[-1] * 2 - self.angles[-2]), color='k',
+                           label="data")
+            #ax_plot.plot(angles, rolled_arr, c='b', label="rolled")
+            ax_residual.set_xlabel("Angle (°)")
+            ax_plot.set_ylabel("Intensity (a.u)")
+            ax_plot.scatter(self.angles[(peaks + gauss_offset) % len(self.angles)], rolled_arr[peaks], c="r",
+                            label="peaks")
+            #ax_plot.legend()
+
+            ax_plot.set_xlim([st, en])
+            ax_plot.set_xticklabels([])
+            ax_residual.set_xlim(ax_plot.get_xlim())
+            # ax_plot.set_ylim([0, 1])
+            guass_fig.show()
+
+        if type(params) is bool:
+            return [[np.nan, np.nan, np.nan]], [[np.nan, np.nan, np.nan]], np.nan, np.nan
+        else:
+            params = [params[i: i + 3] for i in range(0, len(params), 3)]
+            return *select(params, ((peaks + gauss_offset) / self.p_per_a) % 180, self.min_value), np.sqrt(
+                np.diag(covariance)), np.sum(np.power(residuals, 2))
+
+    def fit_gauss(self, x, *params):
+        params = list(params)
+        shifted_params1 = params
+        shifted_params2 = params
+        for i in range(0, len(params), 3):
+            shifted_params1[i] -= self.en
+            shifted_params2[i] += self.en
+        return gauss(x, *params) + gauss(x, *shifted_params1) + gauss(x, *shifted_params2)
+
+    def fit(self, args):
+        d, index, idx_5 = args
+        min_val = np.min(d)
+        d -= min_val
+        self.arr = d
+        self.min_value = min_val
+        self.row_idx = index
+        return *self.fit_gaussian(), self.min_value, idx_5, self.row_idx
 
 
 def heatmap(data_imshow, ax_imshow, cbarlabel="", cbar_yticks=None, **kwargs):
@@ -108,112 +245,6 @@ def gauss(x, *params):
     return y
 
 
-def fit_gauss(x, *params):
-    shifted_params1 = list(params)
-    shifted_params2 = list(params)
-    for i in range(0, len(params), 3):
-        shifted_params1[i] -= en
-        shifted_params2[i] += en
-    return gauss(x, *params) + gauss(x, *shifted_params1) + gauss(x, *shifted_params2)
-
-
-def fit_gaussian(arr, min_value, max_gausses=2, plot=True, row_idx=None) -> tuple:
-    ax_plot = guass_fig = ax_residual = None
-    if plot:
-        guass_fig = plt.figure(1)
-        ax_plot = guass_fig.add_axes((.1, .3, .8, .6))
-        ax_residual = guass_fig.add_axes((.1, .1, .8, .2))
-
-    gauss_offset = np.argmin(arr)
-    rolled_arr = np.roll(arr, -gauss_offset)
-    params = covariance = residuals = False
-    peaks, details = find_peaks(rolled_arr, prominence=[0.12], width=[0], rel_height=0.33, distance=5)
-
-    gausses = min(max_gausses + 1, len(peaks) + 1)
-    r = np.arange(0, gausses - 1, 1)
-    if len(peaks) > gausses:
-        #print(f"{row_idx}: Detected more peaks ({len(peaks)} with prominence of {details['widths']}")
-        r = details["widths"].argsort()[::-1][:gausses]
-
-    # mean, amplitude, width
-    guess = [angles[-1] // 2, np.max(arr) * 0.01, angles[-1] / 8]  # base
-
-    bounds = [
-        [0, 0, 0],
-        [angles[-1], max(0.1 * np.max(arr), 0.001), angles[-1] / 4]
-    ]
-
-    for i in r:
-        if i < len(peaks):
-            guess += [peaks[i] / p_per_a, rolled_arr[peaks[i]], details["widths"][i]]
-            bounds[0] += [peaks[i] / p_per_a * 0.99, 0.05 * rolled_arr[peaks[i]], details["widths"][i] * 0.05]
-            bounds[1] += [peaks[i] / p_per_a * 1.01, 1.5 * rolled_arr[peaks[i]], details["widths"][i] * 5]
-        else:
-            guess += [angles[-1] // 2, np.max(rolled_arr) * 0.25, angles[-1] / 20]
-            bounds[0] += [0, 0, 0]
-            bounds[1] += [angles[-1], 1.1 * np.max(arr), angles[-1] / 4]
-
-    try:
-        params, covariance = curve_fit(fit_gauss, angles, rolled_arr, p0=guess, bounds=bounds)
-        params = list(params)
-        for i in range(0, len(params), 3):
-            params[i] = (params[i] + gauss_offset / p_per_a) % 180
-
-        shifted_params1 = params.copy()
-        shifted_params2 = params.copy()
-        if plot:
-
-            for i in range(0, len(params), 3):
-                shifted_params1[i] -= en
-                shifted_params2[i] += en
-
-                #ax_plot.plot(angles, gauss(angles, *shifted_params1[i:i + 3]), c='lightgreen')
-                #ax_plot.plot(angles, gauss(angles, *shifted_params2[i:i + 3]), c='darkgreen')
-                #ax_plot.plot(angles, gauss(angles, *params[i:i + 3]), 'r-')
-
-        sum_fit = (gauss(angles, *params) +
-                   gauss(angles, *shifted_params1) +
-                   gauss(angles, *shifted_params2))
-        residuals = sum_fit - arr
-
-        if plot:
-            ax_plot.plot(angles, sum_fit, 'b-', label='sum fit')
-            ax_residual.plot(angles, residuals)
-
-    except RuntimeError as err:
-        print(err)
-    except Exception as err:
-        plt.figure()
-        plt.title(f"{row_idx}")
-        plt.plot(angles, arr, c='k', label="data")
-        plt.plot(angles, rolled_arr, c='b', label="rolled")
-        plt.legend()
-        plt.show()
-        raise err
-
-    if plot:
-        ax_plot.set_title(f"i: {row_idx}")
-        ax_plot.stairs(arr, np.append(angles, angles[-1] * 2 - angles[-2]), color='k', label="data")
-        #ax_plot.plot(angles, rolled_arr, c='b', label="rolled")
-        ax_residual.set_xlabel("Angle (°)")
-        ax_plot.set_ylabel("Intensity (a.u)")
-        ax_plot.scatter(angles[(peaks + gauss_offset) % len(angles)], rolled_arr[peaks], c="r", label="peaks")
-        #ax_plot.legend()
-
-        ax_plot.set_xlim([st, en])
-        ax_plot.set_xticklabels([])
-        ax_residual.set_xlim(ax_plot.get_xlim())
-        # ax_plot.set_ylim([0, 1])
-        guass_fig.show()
-
-    if type(params) is bool:
-        return [[np.nan, np.nan, np.nan]], [[np.nan, np.nan, np.nan]], np.nan, np.nan
-    else:
-        params = [params[i: i + 3] for i in range(0, len(params), 3)]
-        return *select(params, ((peaks + gauss_offset) / p_per_a) % 180, min_value), np.sqrt(
-            np.diag(covariance)), np.sum(np.power(residuals, 2))
-
-
 def match(peaks: list, mainpeaks: list, match_ang: int = 15) -> list:
     closest = []
     for a, _, _ in peaks:
@@ -304,21 +335,24 @@ if __name__ == "__main__":
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    core_path = r""
+    core_path = r"order_crystal"
 
     loadpath = os.path.join(".", "input", core_path)
 
-    #names = "all"
-    names = ["window100_15cm_coronal_top_A_crop"]
+    names = "all"
+    #names = ["rotated_center"]
+    #names = ["window100_15cm_coronal_top_A_crop"]
 
     excel_book = Workbook()
     excel_book.remove(excel_book.active)
     filepaths = []
+    thread_pool = Pool()
 
     if names == "all":
         for path, subdirs, files in os.walk(loadpath):
             for file in files:
-                filepaths.append(os.path.join(path, file))
+                if file.endswith(".csv"):
+                    filepaths.append(os.path.join(path, file))
     elif names:
         errors = []
 
@@ -356,6 +390,7 @@ if __name__ == "__main__":
         p_per_a = RFT_sum.shape[0] / 180
         pts = int((en - st) * p_per_a)
         angles = np.linspace(st, en, pts)
+        angle_data = (angles, p_per_a, pts, en, st)  # packing data for parallel
         # parameters [angle, intensity, variance]x n, std error, residuals, min_val
         results = []
         coords = []
@@ -363,6 +398,7 @@ if __name__ == "__main__":
         offset = np.argmin(all_data)
         rolled_all = np.roll(all_data, -offset)
         main_peaks, all_details = find_peaks(rolled_all, prominence=[0.10], distance=10)
+        fitting_class_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts)
 
         pickle_filename = os.path.join(pickle_path, f"{filename}.pickle")
         if os.path.isfile(pickle_filename):
@@ -370,21 +406,16 @@ if __name__ == "__main__":
                 results = pickle.load(pickle_file)
                 print(f"Loaded pickle with {len(results)} rows")
         else:
-            for i in tqdm(range(RFT.shape[0])):
-                #for i in [10]:
-                data = RFT[i, 8:]
-                min_val = np.min(data)
-                data -= min_val
-                sig, bg, c, r = fit_gaussian(data, min_val, max_gausses=3, plot=False, row_idx=i)
-                #if i > 10:
-                #  exit(-1)
-                #exit(-1)
-                results.append((sig, bg, c, r, min_val, RFT[i, 5]))
+            start_time = time.time()
+            results = list(
+                tqdm(thread_pool.imap_unordered(fitting_class_instance.fit, [(RFT[i, 8:], i, RFT[i, 5]) for i in
+                                                                             range(RFT.shape[0])]), total=RFT.shape[0]))
+            print(f"Time taken: {time.time() - start_time}")
             with open(pickle_filename, 'wb') as pickle_file:
                 pickle.dump(results, pickle_file)
 
         coords = [RFT[i, :2] for i in range(RFT.shape[0])]
-        all_angles = np.array(flatten([sig for sig, _, _, _, _, _ in results]))
+        all_angles = np.array(flatten([sig for sig, _, _, _, _, _, _ in results]))
         hist, bin_edges = np.histogram(all_angles[:, 0], range=(0, 180), weights=all_angles[:, 1])
 
         fig, ax1 = plt.subplots()
@@ -412,21 +443,23 @@ if __name__ == "__main__":
         peak_angle_map = [[[] for _ in range(len(xs))] for _ in range(len(ys))]
         peak_intensity_map = [[[] for _ in range(len(xs))] for _ in range(len(ys))]
 
-        for i in range(RFT.shape[0]):
-            x = find_first(xs, RFT[i, 0])
-            y = find_first(ys, RFT[i, 1])
+        for result in results:
+            res = list(result)
+            idx = int(res.pop())
+            x = find_first(xs, RFT[idx, 0])
+            y = find_first(ys, RFT[idx, 1])
 
             # select: sig pars, bg pars, std error, residuals, min_val, image median intensity, main peaks match
-            res = list(results[i])
+
             res += [match(res[0], main_peaks, match_angle)]
             grid[y][x] = res
 
             img_intensity_map[y][x] = res[5]
             min_val_map[y][x] = res[4]
-            all_angles_map[y][x] = [lst for lst in res[0] + res[1] if lst]  # All peaks
+            all_angles_map[y][x] = [lst for lst in res[0] + res[1] if len(lst) > 0]  # All peaks
             sig_angles_map[y][x] = res[0]  # All significant (and unmatched) peaks
             peak_angle_map[y][x] = res[0][np.array(res[0])[:, 1].argmax()][0] if res[0] else np.nan
-            peak_intensity_map[y][x] = np.sum([lst[1] for lst in res[0] + res[1] if lst])  # All peaks
+            peak_intensity_map[y][x] = np.sum([lst[1] for lst in res[0] + res[1] if len(lst) > 0])  # All peaks
             if not np.isnan(res[3]):
                 for j, idx in enumerate(res[6]):
                     if not np.isnan(idx):
