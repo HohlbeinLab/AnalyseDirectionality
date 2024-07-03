@@ -16,7 +16,7 @@ public class RFTParameters {
     public double				overlap             = 0.75;
     public double				intensity_cutoff             = 0.2;
     public double vector_length = 1; //length
-    public int vector_width = 3 ; // pixel width
+    public double vector_width = 3 ; // pixel width
 
     public int width;
     public int height;
