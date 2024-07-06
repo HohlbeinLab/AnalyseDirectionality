@@ -32,15 +32,23 @@ def generate_sequence():
 
 def generate_order_image():
     widths = [[0.11, 0.11, 0.11], [0.11, 0.11, 0.11], [0.11, 0.11, 0.11]]
-    angles = [[45, 45, 45], [135, 135, 135], [135, 135, 135]]
-    intensities =  [[0.2, 0.2, 0.2], [0.2, 0.2, 0.2], [0.2, 0.2, 0.2]]
+    #angles = [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]]
+    #angles = [[130, 130, 130], [130, 130, 130], [130, 130, 130]]
+    #angles = [[130, 130, 130], [130, 40, 130], [130, 130, 130]]
+    angles = [[40, 40, 40], [130, 130, 130], [130, 130, 130]]
+    og_angles = [l[:] for l in angles]
+    intensities =  [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    #intensities = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
     size_divisor = len(angles)
     data = []
     r = resolution // size_divisor
     x_indices = np.arange(0, tiling * resolution, 1, dtype=np.dtype("i"))  # 0, 1, 2, ..., resolution
+    WOPs = []
 
-    for y in range(len(angles)):
+    for y in range(size_divisor):
         for x in range(len(angles[0])):
+            if angles[y][x] == -1:
+                angles[y][x] = np.random.random()*180
             x_values = np.array(
                 intensities[y][x]* 256 * (0.5 + 0.5 * np.cos((np.pi * (x_indices - resolution)) / (0.5 * widths[y][x] * resolution))),
                 dtype=np.dtype("i"))
@@ -56,8 +64,30 @@ def generate_order_image():
         np.concatenate(data[-3:], axis=1)
     ], axis=0)
     plt.imshow(total_image, cmap=mpl.colormaps.get_cmap('gray'))
-    centre = [[angles[size_divisor//2].pop(size_divisor//2), intensities[size_divisor//2].pop(size_divisor//2), widths[size_divisor//2].pop(size_divisor//2)]]
-    plt.title(f'S = {calc_order_param_weighted(np.array(flatten(angles)), flatten(intensities), centre):.1f}')
+
+    centre = [
+        [og_angles[size_divisor // 2].pop(size_divisor // 2), intensities[size_divisor // 2].pop(size_divisor // 2),
+         widths[size_divisor // 2].pop(size_divisor // 2)]]
+
+    for _ in range(10000):
+        angles = [[b if b != -1 else np.random.random()*180 for b in a] for a in og_angles]
+
+        if centre[0][0] == -1:
+            centre[0][0] = np.random.random() * 180
+
+        WOP = calc_order_param_weighted(flatten(angles), flatten(intensities), centre)
+        WOPs.append(WOP)
+
+    ax = plt.gca()
+    ax.tick_params(which="minor", bottom=False, left=False)
+    ax.tick_params(which="major", bottom=False, left=False)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    print(np.average(WOPs))
+    print(np.var(WOPs))
+    plt.title(f'{np.average(WOPs):.2f}±{np.var(WOPs):.2f}')
+    plt.savefig(rf"H:\PhD\AnalyseDirectionality\Python Scripts\Figures\WOP\varied_{np.average(WOPs):.2f}.svg")
     plt.show()
 
 generate_order_image()

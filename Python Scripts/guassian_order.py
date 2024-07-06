@@ -192,8 +192,8 @@ def flatten(lst: Iterable[Iterable]) -> Iterable:
     return flat_list
 
 
-def calc_order_param_weighted(angs: np.ndarray, ints: np.ndarray, centre_values: list):
-    angs = (angs + 90) % 180
+def calc_order_param_weighted(angs: Iterable, ints: Iterable, centre_values: Iterable):
+    angs = (np.array(angs) + 90) % 180
     orders = []
     intensities = []
     for angle, intens, _ in centre_values:
@@ -335,7 +335,7 @@ if __name__ == "__main__":
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    core_path = r"order_crystal"
+    core_path = r"SamRFT"
 
     loadpath = os.path.join(".", "input", core_path)
 
