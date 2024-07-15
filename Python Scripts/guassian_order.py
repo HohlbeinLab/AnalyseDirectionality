@@ -24,7 +24,7 @@ class FittingClass:
     as well as certain fitting parameters.
     """
 
-    def __init__(self, angles, p_per_a, en, st, pts, max_gausses=2, plot=False):
+    def __init__(self, angles, p_per_a, en, st, pts, max_gausses=4, plot=False):
         self.min_value = None
         self.arr = None
         self.row_idx = None
@@ -38,6 +38,7 @@ class FittingClass:
 
     def fit_gaussian(self) -> tuple:
         ax_plot = guass_fig = ax_residual = None
+
         if self.plot:
             guass_fig = plt.figure(1)
             ax_plot = guass_fig.add_axes((.1, .3, .8, .6))
@@ -49,23 +50,22 @@ class FittingClass:
         peaks, details = find_peaks(rolled_arr, prominence=[0.12], width=[0], rel_height=0.33, distance=5)
 
         gausses = min(self.max_gausses + 1, len(peaks) + 1)
-        r = np.arange(0, gausses - 1, 1)
-        if len(peaks) > gausses:
-            r = details["widths"].argsort()[::-1][:gausses]
+        r = np.arange(0, gausses, 1)
+        if peaks.shape[0] > gausses:
+            r = details["widths"].argsort()[:gausses]
+        elif peaks.shape[0] == 0: # no peaks detected
+            return [[np.nan, np.nan, np.nan]], [[np.nan, np.nan, np.nan]], np.nan, np.nan
 
         # mean, amplitude, width
-        guess = [self.angles[-1] // 2, np.max(self.arr) * 0.01, self.angles[-1] / 8]  # base
-
-        bounds = [
-            [0, 0, 0],
-            [self.angles[-1], max(0.1 * np.max(self.arr), 0.001), self.angles[-1] / 4]
-        ]
+        guess = []
+        bounds = [[], []]
 
         for i in r:
-            if i < len(peaks):
-                guess += [peaks[i] / self.p_per_a, rolled_arr[peaks[i]], details["widths"][i]]
-                bounds[0] += [peaks[i] / self.p_per_a * 0.99, 0.05 * rolled_arr[peaks[i]], details["widths"][i] * 0.05]
-                bounds[1] += [peaks[i] / self.p_per_a * 1.01, 1.5 * rolled_arr[peaks[i]], details["widths"][i] * 5]
+            if i < peaks.shape[0]:
+
+                guess += [peaks[i] / self.p_per_a, rolled_arr[peaks[i]], details["widths"][i]/2]
+                bounds[0] += [peaks[i] / self.p_per_a * 0.95, 0.05 * rolled_arr[peaks[i]], details["widths"][i] * 0.05]
+                bounds[1] += [peaks[i] / self.p_per_a * 1.05+0.001, 1.5 * rolled_arr[peaks[i]]+0.0001, details["widths"][i] * 5+0.001]
             else:
                 guess += [self.angles[-1] // 2, np.max(rolled_arr) * 0.25, self.angles[-1] / 20]
                 bounds[0] += [0, 0, 0]
@@ -94,12 +94,21 @@ class FittingClass:
             residuals = sum_fit - self.arr
 
             if self.plot:
-                ax_plot.plot(self.angles, sum_fit, 'b-', label='sum fit')
+
                 ax_residual.plot(self.angles, residuals)
+                for i in range(0, len(params), 3):
+                    ax_plot.plot(angles, gauss(angles, *params[i:i + 3]), 'r-')
+
+                for i in range(0, len(guess), 3):
+                    guess[i] = (guess[i] + gauss_offset / self.p_per_a) % 180
+                    ax_plot.plot(angles, gauss(angles, *guess[i:i + 3]), 'g-')
+                ax_plot.plot(self.angles, sum_fit, 'b-', label='sum fit')
 
         except RuntimeError as err:
             print(err)
         except Exception as err:
+            print(self.arr)
+            print(peaks)
             plt.figure()
             plt.title(f"{self.row_idx}")
             plt.plot(self.angles, self.arr, c='k', label="data")
@@ -134,8 +143,8 @@ class FittingClass:
 
     def fit_gauss(self, x, *params):
         params = list(params)
-        shifted_params1 = params
-        shifted_params2 = params
+        shifted_params1 = params[:]
+        shifted_params2 = params[:]
         for i in range(0, len(params), 3):
             shifted_params1[i] -= self.en
             shifted_params2[i] += self.en
@@ -322,6 +331,11 @@ def make_dir(*paths):
         os.makedirs(os.path.join(*paths))
 
 
+def visualise_fit(row: int):
+    visualise_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts, plot=True)
+    return visualise_instance.fit((RFT[row, 8:], row, RFT[row, 5]))
+
+
 if __name__ == "__main__":
     #np.seterr(all='raise')
     base_nan = (np.nan, np.nan, np.nan)
@@ -330,18 +344,23 @@ if __name__ == "__main__":
     st = 0 - buff
     en = 180 + buff
     max_neighbourhood = 11
-    filter_edges = 0  # Remove this number of cells from the edges
+    filter_edges = 0  # Remove this number of windows from the edges
+
+    image_format = "svg"
+
 
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    core_path = r"order_crystal"
+    force_recalculation = False
+    core_path = r"DP1"
 
     loadpath = os.path.join(".", "input", core_path)
 
     names = "all"
     #names = ["rotated_center"]
-    #names = ["window100_15cm_coronal_top_A_crop"]
+    #names = ["window33_SP07"]
+    #Implement commandline support for funsies
 
     excel_book = Workbook()
     excel_book.remove(excel_book.active)
@@ -390,8 +409,9 @@ if __name__ == "__main__":
         p_per_a = RFT_sum.shape[0] / 180
         pts = int((en - st) * p_per_a)
         angles = np.linspace(st, en, pts)
-        angle_data = (angles, p_per_a, pts, en, st)  # packing data for parallel
-        # parameters [angle, intensity, variance]x n, std error, residuals, min_val
+        window_size = RFT[0, 2]
+
+
         results = []
         coords = []
         all_data = np.sum(RFT[:, 8:], axis=0)
@@ -401,7 +421,8 @@ if __name__ == "__main__":
         fitting_class_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts)
 
         pickle_filename = os.path.join(pickle_path, f"{filename}.pickle")
-        if os.path.isfile(pickle_filename):
+
+        if os.path.isfile(pickle_filename) and not force_recalculation:
             with open(pickle_filename, 'rb') as pickle_file:
                 results = pickle.load(pickle_file)
                 print(f"Loaded pickle with {len(results)} rows")
@@ -426,7 +447,7 @@ if __name__ == "__main__":
         ax1.set_ylabel("Intensity Data")
         ax2.set_ylabel("Intensity Binned Angles")
         ax1.set_xlabel("angle (°)")
-        plt.savefig(os.path.join(results_path, f"{filename}_all_data.png"))
+        plt.savefig(os.path.join(results_path, f"{filename}_all_data.{image_format}"))
         if show_graph: fig.show()
 
         main_peaks = ((main_peaks + offset) / p_per_a) % 180
@@ -470,11 +491,14 @@ if __name__ == "__main__":
                         if not abs(a - p) < match_angle and abs(
                                 (a - p) % 180) < match_angle:  # we have a 0 and 180 or vice versa vase
                             a += 180 if a < p else -180
-                        if not matched_angles_map[idx][y][x]:
+                        if not matched_angles_map[idx][y][x]: # initiate / append to list
                             matched_angles_map[idx][y][x] = [[a, intensity, s]]
-                            all_matched_angles_map[y][x] = [[a, intensity, s]]
                         else:
                             matched_angles_map[idx][y][x] += [[a, intensity, s]]
+
+                        if not all_matched_angles_map[y][x]:
+                            all_matched_angles_map[y][x] = [[a, intensity, s]]
+                        else:
                             all_matched_angles_map[y][x] += [[a, intensity, s]]
 
         skip_main_peaks = []  # which main peaks contain 0 data
@@ -521,7 +545,7 @@ if __name__ == "__main__":
                     vmax=int_map_max * 0.8)
             fig.tight_layout()
             plt.title(f"Angle {main_peaks[i]:.2f}")
-            plt.savefig(os.path.join(results_path, f"{filename}_{main_peaks[i]:.2f}_angle.png"))
+            plt.savefig(os.path.join(results_path, f"{filename}_{main_peaks[i]:.2f}_angle.{image_format}"))
             lines.append([f"{main_peaks[i]}", f"{angular_average_weighted(ang_map, int_avg_map[i])}",
                           f"{angular_weighted_nanstd(ang_map, int_avg_map[i])}",
                           f"{np.nanmean(int_avg_map[i])}", f"{np.nanstd(int_avg_map[i])}",
@@ -554,7 +578,7 @@ if __name__ == "__main__":
         ax2.set_title(f"Min Val")
         ax3.set_title(f"Peak Angle")
         ax3.set_title(f"Sum Intensities")
-        plt.savefig(os.path.join(results_path, f"{filename}_overall.png"))
+        plt.savefig(os.path.join(results_path, f"{filename}_overall.{image_format}"))
         if show_graph: plt.show()
         np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_angle_raw.csv"), np.array(peak_angle_map),
                    delimiter=",")
@@ -681,7 +705,7 @@ if __name__ == "__main__":
                 stats_file.write("\n")
 
             fig.tight_layout()
-            plt.savefig(os.path.join(results_path, f"{filename}_order_{ang}.png"))
+            plt.savefig(os.path.join(results_path, f"{filename}_order_{ang}.{image_format}"))
             if show_graph: plt.show()
 
             excel_sheet.append(["", ""])
@@ -706,7 +730,7 @@ if __name__ == "__main__":
         ax2.set_title("Horizontal Profile")
 
         if show_graph: fig.show()
-        fig.savefig(os.path.join(results_path, f"{filename}_flow_profile.png"))
+        fig.savefig(os.path.join(results_path, f"{filename}_flow_profile.{image_format}"))
 
         excel_sheet.cell(row=row_offset, column=1, value="Vertical Profile")
         for i, val in enumerate(vert_profile):

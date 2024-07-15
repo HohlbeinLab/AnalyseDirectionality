@@ -23,7 +23,7 @@ for i, loadpath in enumerate(loadpaths):
         weights_path = fr"{loadpath}\{filename}\raw\{filename}_peak_intensity_raw.csv"
         A = np.loadtxt(file_path, delimiter=',').flatten()
         weights = np.loadtxt(weights_path, delimiter=',').flatten()
-        filter = np.logical_and(~np.isnan(A), weights > np.nanmean(weights)*1.5)
+        filter = np.logical_and(~np.isnan(A), weights > np.nanmean(weights)*0)
         filtered_A = A[filter]
         if not filtered_A.shape[0]:
             filtered_A = [0]
