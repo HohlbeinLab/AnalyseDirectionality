@@ -201,8 +201,8 @@ def flatten(lst: Iterable[Iterable]) -> Iterable:
     return flat_list
 
 
-def calc_order_param_weighted(angs: np.ndarray, ints: np.ndarray, centre_values: list):
-    angs = (angs + 90) % 180
+def calc_order_param_weighted(angs: Iterable, ints: Iterable, centre_values: Iterable):
+    angs = (np.array(angs) + 90) % 180
     orders = []
     intensities = []
     for angle, intens, _ in centre_values:

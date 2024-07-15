@@ -33,3 +33,4 @@ hs_err_pid*
 /Python Scripts/pickles/*
 /Python Scripts/results/*
 /Python Scripts/input/*
+/Python Scripts/__pycache__/*

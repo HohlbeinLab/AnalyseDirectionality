@@ -27,8 +27,8 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
     private final SpinnerInteger spnWindow = new SpinnerInteger(75, 3, 100000, 1);
     private final SpinnerDouble spnOverlap = new SpinnerDouble(0.75, 0, 1, 0.01);
     private final SpinnerInteger spnBuffer = new SpinnerInteger(0, 0, 100000, 1);
-    private final SpinnerDouble spnVectorFieldLength = new SpinnerDouble(100, 0, 10000, 1);
-    private final SpinnerInteger spnVectorFieldWidth = new SpinnerInteger(3, 1, 10, 1);
+    private final SpinnerDouble spnVectorFieldLength = new SpinnerDouble(100.0, 1.0, 10000, 1.0);
+    private final SpinnerDouble spnVectorFieldWidth = new SpinnerDouble(3.0, 1.0, 10, 1.0);
     private final SpinnerDouble spnCutoff = new SpinnerDouble(2.0, 0, 10, 0.1);
     private final SpinnerDouble spnIntensityCutoff = new SpinnerDouble(0, 0, 1, 0.01);
     private final SpinnerInteger spnScanStart = new SpinnerInteger(21, 3, 100000, 1);
