@@ -47,12 +47,12 @@ class FittingClass:
         gauss_offset = np.argmin(self.arr)
         rolled_arr = np.roll(self.arr, -gauss_offset)
         params = covariance = residuals = False
-        peaks, details = find_peaks(rolled_arr, prominence=[0.08], width=[0], rel_height=0.33, distance=5)
+        peaks, details = find_peaks(rolled_arr, prominence=[0.12], width=[0], rel_height=0.33, distance=5)
 
         gausses = min(self.max_gausses + 1, len(peaks) + 1)
         r = np.arange(0, gausses, 1)
         if peaks.shape[0] > gausses:
-            r = details["widths"].argsort()[::-1][:gausses]
+            r = details["widths"].argsort()[:gausses]
         elif peaks.shape[0] == 0: # no peaks detected
             return [[np.nan, np.nan, np.nan]], [[np.nan, np.nan, np.nan]], np.nan, np.nan
 
@@ -138,8 +138,6 @@ class FittingClass:
             return [[np.nan, np.nan, np.nan]], [[np.nan, np.nan, np.nan]], np.nan, np.nan
         else:
             params = [params[i: i + 3] for i in range(0, len(params), 3)]
-            if self.plot:
-                print(params)
             return *select(params, ((peaks + gauss_offset) / self.p_per_a) % 180, self.min_value), np.sqrt(
                 np.diag(covariance)), np.sum(np.power(residuals, 2))
 
@@ -350,18 +348,22 @@ if __name__ == "__main__":
 
     image_format = "svg"
 
-    testing = 0
+
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    force_recalculation = True
-    core_path = r"Sam77"
+<<<<<<< HEAD
+    force_recalculation = False
+    core_path = r"DP1"
+=======
+    core_path = r"SamRFT"
+>>>>>>> e6ceabf4995466e0b54ce383208870844ebd2209
 
     loadpath = os.path.join(".", "input", core_path)
 
     names = "all"
     #names = ["rotated_center"]
-    #names = ["window51_width_0.01_angle_30"]
+    #names = ["window33_SP07"]
     #Implement commandline support for funsies
 
     excel_book = Workbook()
@@ -402,7 +404,6 @@ if __name__ == "__main__":
         make_dir(pickle_path)
         make_dir(results_path, "csv")
         make_dir(results_path, "raw")
-        stats_file = open(os.path.join(results_path, "csv", f"{filename}_all_stats.csv"), "w")
 
         # 0 1   2       3       4           5           6       7           8:
         # x	y	width	height	Max Index	Mask Median	Angle	Relevance   data:
@@ -430,10 +431,6 @@ if __name__ == "__main__":
                 results = pickle.load(pickle_file)
                 print(f"Loaded pickle with {len(results)} rows")
         else:
-            if testing:
-                visualise_fit(testing)
-                exit()
-
             start_time = time.time()
             results = list(
                 tqdm(thread_pool.imap_unordered(fitting_class_instance.fit, [(RFT[i, 8:], i, RFT[i, 5]) for i in
@@ -541,7 +538,6 @@ if __name__ == "__main__":
 
         row_offset = 0
         lines = [["angle", "mean ang", "std ang", "mean int", "std int", "mean std", "std std"]]
-        stats_file.write(", ".join(lines[-1]) + "\n")
 
         for i, ang_map in enumerate(angles_avg_map):
             if i in skip_main_peaks:
@@ -559,14 +555,11 @@ if __name__ == "__main__":
                           f"{np.nanmean(int_avg_map[i])}", f"{np.nanstd(int_avg_map[i])}",
                           f"{np.nanmean(std_avg_map[i])}", f"{np.nanstd(std_avg_map[i])}"])
             print(lines[-1])
-            stats_file.write(", ".join(lines[-1]) + "\n")
             np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_angle_raw.csv"),
                        np.array(ang_map), delimiter=",")
             np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_intensity_raw.csv"),
                        np.array(int_avg_map[i]), delimiter=",")
             if show_graph: plt.show()
-
-        stats_file.write("\n")
 
         for row in range(1, len(lines) + 1):
             for column in range(1, len(lines[0]) + 1):
@@ -618,7 +611,7 @@ if __name__ == "__main__":
             if type(ang) != str:
                 ang = f"{ang:.2f}"
 
-            stats_file = open(os.path.join(results_path, "csv", f"{filename}_{ang}_stats.csv"), "a")
+            stats_file = open(os.path.join(results_path, "csv", f"{filename}_{ang}_stats.csv"), "w")
 
             fig, axes = plt.subplots(len(neigh_sizes) if len(neigh_sizes) > 1 else 2,
                                      len(labels) if ang != "all" else len(labels_all), dpi=400,

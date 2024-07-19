@@ -13,13 +13,14 @@ label = ["3 cm", "21 cm"]
 sides = ["high", "high"]
 offset = [0, 0.25]
 colors = ["blue", "red"]
-positions2 = [np.array([6, 5, 4, 3, 2, 1]), np.array([6, 2, 3, 4, 5, 1])]
+positions2 = [[6, 5, 4, 3, 2, 1], [6, 2, 3, 4, 5, 1]]
+#positions2 = [[7, 8, 9, 10, 11, 12], [7, 8, 9, 10, 11, 12]]
 for i, loadpath in enumerate(loadpaths):
     data = []
-    positions = positions2[i]
+    positions = np.array(positions2[i])
     weighted_means = []
     for filename in os.listdir(loadpath):
-        file_path = fr"{loadpath}\{filename}\raw\{filename}_order_all angles_neighbourhood_11_raw.csv"
+        file_path = fr"{loadpath}\{filename}\raw\{filename}_order_all angles_neighbourhood_9_raw.csv"
         weights_path = fr"{loadpath}\{filename}\raw\{filename}_peak_intensity_raw.csv"
         A = np.loadtxt(file_path, delimiter=',').flatten()
         weights = np.loadtxt(weights_path, delimiter=',').flatten()
@@ -46,6 +47,7 @@ for i, loadpath in enumerate(loadpaths):
 
 plt.legend(*zip(*labels))
 plt.ylabel("WOP (-)")
-plt.xlabel("Position in Cooling Die")
+plt.xlabel("SP")
 #plt.ylim((0, 0.7))
 plt.show()
+plt.savefig("./figures/A2_violin_plot.svg")
