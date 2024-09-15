@@ -338,6 +338,9 @@ def visualise_fit(row: int):
     return visualise_instance.fit((RFT[row, 8:], row, RFT[row, 5]))
 
 
+def characteristic_size(mean_std: float, window_size: int):
+    return (window_size*np.power(mean_std-0.86, 1/1.54))/7.20
+
 if __name__ == "__main__":
     #np.seterr(all='raise')
     base_nan = (np.nan, np.nan, np.nan)
@@ -354,13 +357,13 @@ if __name__ == "__main__":
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    force_recalculation = True
-    core_path = r"Sam77"
+    force_recalculation = False
+    core_path = r""
 
     loadpath = os.path.join(".", "input", core_path)
 
-    names = "all"
-    #names = ["rotated_center"]
+    #names = "all"
+    names = ["window200_outmost2_MMStack_Pos0.ome"]
     #names = ["window51_width_0.01_angle_30"]
     #Implement commandline support for funsies
 
@@ -435,9 +438,12 @@ if __name__ == "__main__":
                 exit()
 
             start_time = time.time()
+            #results = []
+            #for i in tqdm(range(RFT.shape[0])):
+            #    results.append(fitting_class_instance.fit((RFT[i, 8:], i, RFT[i, 5])))
             results = list(
                 tqdm(thread_pool.imap_unordered(fitting_class_instance.fit, [(RFT[i, 8:], i, RFT[i, 5]) for i in
-                                                                             range(RFT.shape[0])]), total=RFT.shape[0]))
+                                                                            range(RFT.shape[0])]), total=RFT.shape[0]))
             print(f"Time taken: {time.time() - start_time}")
             with open(pickle_filename, 'wb') as pickle_file:
                 pickle.dump(results, pickle_file)
@@ -540,9 +546,11 @@ if __name__ == "__main__":
         cmap_hsv.set_bad(color='black')
 
         row_offset = 0
-        lines = [["angle", "mean ang", "std ang", "mean int", "std int", "mean std", "std std"]]
+        lines = [["angle", "mean ang", "std ang", "mean int", "std int", "mean std", "std std", "characteristic_size"]]
+        print(lines[-1])
         stats_file.write(", ".join(lines[-1]) + "\n")
-
+        characteristic_sizes = []
+        characteristic_sizes_weights = []
         for i, ang_map in enumerate(angles_avg_map):
             if i in skip_main_peaks:
                 continue
@@ -554,10 +562,15 @@ if __name__ == "__main__":
             fig.tight_layout()
             plt.title(f"Angle {main_peaks[i]:.2f}")
             plt.savefig(os.path.join(results_path, f"{filename}_{main_peaks[i]:.2f}_angle.{image_format}"))
+            angular_std = np.nanmean(std_avg_map[i])
+            characteristic_sizes.append(characteristic_size(angular_std, window_size))
+            characteristic_sizes_weights.append(np.nanmean(int_avg_map[i]))
             lines.append([f"{main_peaks[i]}", f"{angular_average_weighted(ang_map, int_avg_map[i])}",
-                          f"{angular_weighted_nanstd(ang_map, int_avg_map[i])}",
+                          f"{angular_std}",
                           f"{np.nanmean(int_avg_map[i])}", f"{np.nanstd(int_avg_map[i])}",
-                          f"{np.nanmean(std_avg_map[i])}", f"{np.nanstd(std_avg_map[i])}"])
+                          f"{np.nanmean(std_avg_map[i])}", f"{np.nanstd(std_avg_map[i])}",
+                          f"{characteristic_sizes[-1]}"
+            ])
             print(lines[-1])
             stats_file.write(", ".join(lines[-1]) + "\n")
             np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_angle_raw.csv"),
@@ -567,9 +580,12 @@ if __name__ == "__main__":
             if show_graph: plt.show()
 
         stats_file.write("\n")
+        lines.append(["characteristic size (px)", f"{weighted_nanmean(characteristic_sizes, characteristic_sizes_weights)}"])
+        print(lines[-1])
+        stats_file.write(", ".join(lines[-1]) + "\n\n")
 
         for row in range(1, len(lines) + 1):
-            for column in range(1, len(lines[0]) + 1):
+            for column in range(1, len(lines[row-1]) + 1):
                 try:
                     data = float(lines[row - 1][column - 1])
                 except ValueError:

@@ -4,15 +4,27 @@ import pickle
 import numpy as np
 import skimage as ski
 from matplotlib import pyplot as plt
+
+
 from guassian_order import find_first
 
 
 def get_angles2(angle, lengths):
     return np.cos(np.radians(angle+90))*lengths, np.sin(np.radians(angle+90))*lengths
 
-pickle_path = r"./pickles/DP1_21cm/window300_outmost.pickle"
-image_path = r"D:\Data\Microscopy\RCM\2023\20230926 - DP1\21cm\outmost3\outmost3_MMStack_Pos0.ome.tif"
-csv_path = r"./input/DP1_21cm/window300_outmost.csv"
+
+input = [
+    r"./pickles/DP1/DP1_21cm/window300_outmost.pickle",
+    r"D:\Data\Microscopy\RCM\2023\20230926 - DP1\21cm\outmost2\outmost2_MMStack_Pos0.ome.tif",
+    r"./input/DP1/DP1_21cm/window300_outmost.csv"
+]
+input = [
+    r"./pickles/DP1/DP1_21cm/window300_core1.pickle",
+    r"D:\Data\Microscopy\RCM\2023\20230926 - DP1\21cm\core\core_1\MAX_core_1_MMStack_Pos0.ome.tif",
+    r"./input/DP1/DP1_21cm/window300_core1.csv"
+]
+pickle_path, image_path, csv_path = input
+
 
 # 0 1   2       3       4           5           6       7           8:
 # x	y	width	height	Max Index	Mask Median	Angle	Relevance   data:
@@ -70,6 +82,6 @@ for i in range(RFT.shape[0]):
         V.append(ay)
 
 
-plt.quiver(X, Y, U, V, color="y", pivot="middle", headlength=0, headaxislength=0, headwidth=0)
-
+plt.quiver(X, Y, U, V, color="y", pivot="middle", headlength=0, headaxislength=0, headwidth=0, scale=800)
+plt.savefig("./figures/core_vector21cm.svg")
 plt.show()
