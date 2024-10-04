@@ -28,13 +28,13 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      inkscape:zoom="0.5121316"
-     inkscape:cx="353.42479"
+     inkscape:cx="353.42478"
      inkscape:cy="498.89521"
-     inkscape:window-width="1350"
+     inkscape:window-width="1920"
      inkscape:window-height="1017"
-     inkscape:window-x="562"
-     inkscape:window-y="4"
-     inkscape:window-maximized="0"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
      inkscape:current-layer="layer1"
      showgrid="false" /><defs
      id="defs1"><rect
@@ -1092,7 +1092,7 @@
            id="tspan198"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="215.53046"
-           y="65.676788">B) 0.00±0.06</tspan></text></g><g
+           y="65.676788">b) 0.00±0.06</tspan></text></g><g
        id="g207"
        transform="translate(-88.103273,-49.624438)"><g
          id="g175"
@@ -1132,7 +1132,7 @@
            id="tspan197"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="116.17777"
-           y="65.676788">A) WOP=1.00±0.00</tspan></text></g><g
+           y="65.676788">a) WOP=1.00±0.00</tspan></text></g><g
        id="g205"
        transform="translate(-66.018827,-48.074513)"><g
          id="g177"
@@ -1172,7 +1172,7 @@
            id="tspan199"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="314.79547"
-           y="65.676788">C) -1.00±0.00</tspan></text></g><g
+           y="65.676788">c) -1.00±0.00</tspan></text></g><g
        id="g208"
        transform="translate(-89.136536,-69.95158)"><g
          id="g190"
@@ -1212,7 +1212,7 @@
            id="tspan200"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="116.36217"
-           y="196.29401">D) 1.00±0.00</tspan></text></g><g
+           y="196.29401">d) 1.00±0.00</tspan></text></g><g
        id="g209"
        transform="translate(-76.436528,-69.95158)"><g
          id="g182"
@@ -1252,7 +1252,7 @@
            id="tspan201"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="216.49699"
-           y="196.29401">E) 0.00±0.09</tspan></text></g><g
+           y="196.29401">e) 0.00±0.09</tspan></text></g><g
        id="g210"
        transform="translate(-67.05209,-68.40171)"><g
          id="g179"
@@ -1292,7 +1292,7 @@
            id="tspan202"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="313.99115"
-           y="196.29401">F) -1.00±0.00</tspan></text></g><g
+           y="196.29401">f) -1.00±0.00</tspan></text></g><g
        id="g213"
        transform="translate(-89.136536,-64.155549)"><g
          id="g187"
@@ -1332,9 +1332,7 @@
            id="tspan203"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="116.54304"
-           y="301.01294">G) 0<tspan
-   id="tspan11"
-   style="font-size:7.05556px">.</tspan>95±0.00</tspan></text></g><g
+           y="301.01294">g) 0.95±0.00</tspan></text></g><g
        id="g212"
        transform="translate(32.400257,-62.605654)"><g
          id="g186"
@@ -1374,7 +1372,7 @@
            id="tspan204"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="215.90857"
-           y="301.01294">I) 0.25±0.00</tspan></text></g><g
+           y="301.01294">i) 0.25±0.00</tspan></text></g><g
        id="g211"
        transform="translate(-175.8888,-64.155799)"><g
          id="g184"
@@ -1414,7 +1412,7 @@
            id="tspan205"
            style="font-size:7.05556px;stroke-width:0.264583"
            x="317.14548"
-           y="301.01294">H) 0.74±0.00</tspan></text></g><rect
+           y="301.01294">h) 0.74±0.00</tspan></text></g><rect
        style="fill:none;stroke:#f000bd;stroke-width:2.51338586;stroke-dasharray:20.10708618,20.10708618;stroke-opacity:1;stroke-dashoffset:0"
        id="rect11"
        width="120.12202"

@@ -24,7 +24,7 @@ class FittingClass:
     as well as certain fitting parameters.
     """
 
-    def __init__(self, angles, p_per_a, en, st, pts, max_gausses=4, plot=False):
+    def __init__(self, angles, p_per_a, en, st, pts, prominence, min_width, min_distance, max_gausses=4, plot=False):
         self.min_value = None
         self.arr = None
         self.row_idx = None
@@ -35,6 +35,9 @@ class FittingClass:
         self.en = en
         self.st = st
         self.pts = pts
+        self.prominence = prominence
+        self.min_width = min_width
+        self.min_distance = min_distance
 
     def fit_gaussian(self) -> tuple:
         ax_plot = guass_fig = ax_residual = None
@@ -47,7 +50,11 @@ class FittingClass:
         gauss_offset = np.argmin(self.arr)
         rolled_arr = np.roll(self.arr, -gauss_offset)
         params = covariance = residuals = False
-        peaks, details = find_peaks(rolled_arr, prominence=[0.08], width=[0], rel_height=0.33, distance=5)
+        peaks, details = find_peaks(rolled_arr,
+                                    prominence=[self.prominence*np.max(rolled_arr)],
+                                    width=[self.min_width],
+                                    rel_height=0.33,
+                                    distance=self.min_distance)
 
         gausses = min(self.max_gausses + 1, len(peaks) + 1)
         r = np.arange(0, gausses, 1)
@@ -84,8 +91,8 @@ class FittingClass:
                     shifted_params1[i] -= self.en
                     shifted_params2[i] += self.en
 
-                    #ax_plot.plot(angles, gauss(angles, *shifted_params1[i:i + 3]), c='lightgreen')
-                    #ax_plot.plot(angles, gauss(angles, *shifted_params2[i:i + 3]), c='darkgreen')
+                    ax_plot.plot(angles, gauss(angles, *shifted_params1[i:i + 3]), c='lightgreen')
+                    ax_plot.plot(angles, gauss(angles, *shifted_params2[i:i + 3]), c='darkgreen')
                     #ax_plot.plot(angles, gauss(angles, *params[i:i + 3]), 'r-')
 
             sum_fit = (gauss(self.angles, *params) +
@@ -99,9 +106,9 @@ class FittingClass:
                 for i in range(0, len(params), 3):
                     ax_plot.plot(angles, gauss(angles, *params[i:i + 3]), 'r-')
 
-                for i in range(0, len(guess), 3):
-                    guess[i] = (guess[i] + gauss_offset / self.p_per_a) % 180
-                    ax_plot.plot(angles, gauss(angles, *guess[i:i + 3]), 'g-')
+                #for i in range(0, len(guess), 3):
+                #    guess[i] = (guess[i] + gauss_offset / self.p_per_a) % 180
+                #    ax_plot.plot(angles, gauss(angles, *guess[i:i + 3]), 'g-')
                 ax_plot.plot(self.angles, sum_fit, 'b-', label='sum fit')
 
         except RuntimeError as err:
@@ -334,9 +341,12 @@ def make_dir(*paths):
 
 
 def visualise_fit(row: int):
-    visualise_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts, plot=True)
-    return visualise_instance.fit((RFT[row, 8:], row, RFT[row, 5]))
-
+    print(f"Visualising row {row}")
+    visualise_instance = FittingClass(plot=True, angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts, prominence=prominence, min_width=min_width, min_distance=min_distance)
+    if len(RFT.shape) > 1:
+        return visualise_instance.fit((RFT[row, 8:], row, RFT[row, 5]))
+    else:
+        return visualise_instance.fit((RFT[8:], row, RFT[5]))
 
 def characteristic_size(mean_std: float, window_size: int):
     return (window_size*np.power(mean_std-0.86, 1/1.54))/7.20
@@ -350,33 +360,43 @@ if __name__ == "__main__":
     en = 180 + buff
     max_neighbourhood = 11
     filter_edges = 0  # Remove this number of windows from the edges
+    prominence = 0.08 # % of max value above min that a peak must have
+    min_width = 1 # ° minimum width a peak must have
+    min_distance = 5 # ° min distance between peaks
+    multithreaded = True
 
     image_format = "svg"
 
-    testing = 0
+    testing = 1
     np.random.seed(23452987)
     show_graph = False
     do_all_neigh = False
-    force_recalculation = False
+    force_recalculation = True
     core_path = r""
 
     loadpath = os.path.join(".", "input", core_path)
 
     #names = "all"
-    names = ["window200_outmost2_MMStack_Pos0.ome"]
+    names = ["window300_Clipboard"]
     #names = ["window51_width_0.01_angle_30"]
     #Implement commandline support for funsies
 
     excel_book = Workbook()
     excel_book.remove(excel_book.active)
+    overview_sheet = excel_book.create_sheet("Overview")
+    overview_sheet.append(["Name"])
     filepaths = []
-    thread_pool = Pool()
+
+    if multithreaded:
+        thread_pool = Pool()
 
     if names == "all":
         for path, subdirs, files in os.walk(loadpath):
             for file in files:
                 if file.endswith(".csv"):
                     filepaths.append(os.path.join(path, file))
+        if not filepaths:
+            raise Exception(f"No files found in the path {loadpath}")
     elif names:
         errors = []
 
@@ -400,6 +420,7 @@ if __name__ == "__main__":
 
         print(f"{filename}")
         excel_sheet = excel_book.create_sheet(filename)
+        overview_sheet.append([filename])
 
         make_dir(results_path)
         make_dir(pickle_path)
@@ -410,21 +431,23 @@ if __name__ == "__main__":
         # 0 1   2       3       4           5           6       7           8:
         # x	y	width	height	Max Index	Mask Median	Angle	Relevance   data:
         RFT = np.loadtxt(filepath, delimiter=',', skiprows=1)
-        RFT_sum = np.sum(RFT[:, 8:], axis=0)
+        if len(RFT.shape) > 1:
+            all_data = np.sum(RFT[:, 8:], axis=0)
+            window_size = RFT[0, 2]
+        else:
+            all_data = RFT[8:]
+            window_size = RFT[2]
 
-        p_per_a = RFT_sum.shape[0] / 180
+        p_per_a = all_data.shape[0] / 180
         pts = int((en - st) * p_per_a)
         angles = np.linspace(st, en, pts)
-        window_size = RFT[0, 2]
-
 
         results = []
         coords = []
-        all_data = np.sum(RFT[:, 8:], axis=0)
         offset = np.argmin(all_data)
         rolled_all = np.roll(all_data, -offset)
         main_peaks, all_details = find_peaks(rolled_all, prominence=[0.10], distance=10)
-        fitting_class_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts)
+        fitting_class_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts, prominence=prominence, min_width=min_width, min_distance=min_distance)
 
         pickle_filename = os.path.join(pickle_path, f"{filename}.pickle")
 
@@ -438,12 +461,14 @@ if __name__ == "__main__":
                 exit()
 
             start_time = time.time()
-            #results = []
-            #for i in tqdm(range(RFT.shape[0])):
-            #    results.append(fitting_class_instance.fit((RFT[i, 8:], i, RFT[i, 5])))
-            results = list(
-                tqdm(thread_pool.imap_unordered(fitting_class_instance.fit, [(RFT[i, 8:], i, RFT[i, 5]) for i in
-                                                                            range(RFT.shape[0])]), total=RFT.shape[0]))
+            if not multithreaded:
+                results = []
+                for i in tqdm(range(RFT.shape[0])):
+                    results.append(fitting_class_instance.fit((RFT[i, 8:], i, RFT[i, 5])))
+            else:
+                results = list(
+                    tqdm(thread_pool.imap_unordered(fitting_class_instance.fit, [(RFT[i, 8:], i, RFT[i, 5]) for i in
+                                                                                range(RFT.shape[0])]), total=RFT.shape[0]))
             print(f"Time taken: {time.time() - start_time}")
             with open(pickle_filename, 'wb') as pickle_file:
                 pickle.dump(results, pickle_file)
@@ -455,6 +480,7 @@ if __name__ == "__main__":
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
         ax1.plot(angles, all_data)
+        np.savetxt("RFT_data.csv", [angles, all_data])
         ax1.scatter(angles[(main_peaks + offset) % len(angles)], rolled_all[main_peaks], c="r", label="peaks")
         ax2.stairs(hist, bin_edges)
         ax1.set_ylabel("Intensity Data")
@@ -575,6 +601,8 @@ if __name__ == "__main__":
             stats_file.write(", ".join(lines[-1]) + "\n")
             np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_angle_raw.csv"),
                        np.array(ang_map), delimiter=",")
+            np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_std_raw.csv"),
+                       np.array(std_avg_map[i]), delimiter=",")
             np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_intensity_raw.csv"),
                        np.array(int_avg_map[i]), delimiter=",")
             if show_graph: plt.show()
@@ -629,6 +657,8 @@ if __name__ == "__main__":
 
         for i, ang in enumerate(todo):
             if i in skip_main_peaks:
+                continue
+            if neigh_sizes.size == 0:
                 continue
 
             if type(ang) != str:
@@ -731,6 +761,7 @@ if __name__ == "__main__":
                 lines.append(line)
                 stats_file.write("\n")
 
+
             fig.tight_layout()
             plt.savefig(os.path.join(results_path, f"{filename}_order_{ang}.{image_format}"))
             if show_graph: plt.show()
@@ -772,4 +803,4 @@ if __name__ == "__main__":
                    np.array(img_intensity_map), delimiter=",")
 
     excel_book.save(os.path.join(".", "results", core_path if core_path else filename,
-                                 f"{core_path if core_path else filename}_overview.xlsx"))
+                                 f"{os.path.basename(core_path) if core_path else filename}_overview.xlsx"))
