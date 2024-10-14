@@ -36,3 +36,4 @@ hs_err_pid*
 /Python Scripts/__pycache__/*
 /Python Scripts/Images/*
 /Python Scripts/figures/*
+/Python Scripts/test/results/*
