@@ -6,7 +6,6 @@ import matplotlib as mpl
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-from numpy.ma.core import absolute
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 from tqdm import tqdm
@@ -289,15 +288,6 @@ def find_first(haystack: np.ndarray, needle) -> int:
         return -1
 
 
-def random_interval(start_val, end_val, no=1) -> np.ndarray:
-    if start_val == end_val:
-        return np.full(no, start_val)
-    elif no == 1:
-        return start_val + (end_val - start_val) * np.random.random(1)[0]
-    else:
-        return start_val + (end_val - start_val) * np.random.random(no)
-
-
 def weighted_nanmean(A: [Iterable], weights: [Any] = 1):
     if isinstance(A, list) and not A:
         return np.nan
@@ -309,7 +299,14 @@ def weighted_nanmean(A: [Iterable], weights: [Any] = 1):
         return 0
 
 
-def angular_average_weighted(A, weights=None):
+def weighted_nanstd(A, weights=None):
+    average = weighted_nanmean(A, weights=weights)
+    # Fast and numerically precise:
+    variance = weighted_nanmean((A - average) ** 2, weights=weights)
+    return np.sqrt(variance)
+
+
+def angular_weighted_nanmean(A, weights=None):
     if not A:
         return np.nan
     A = np.array(A)
@@ -330,13 +327,6 @@ def angular_weighted_nanstd(A, weights=None):
     else:
         weights = np.array(weights)[~np.isnan(A)]
         return np.degrees(circstd(np.radians(A[~np.isnan(A)] * 2), weights=weights) / 2) % 180
-
-
-def weighted_nanstd(A, weights=None):
-    average = weighted_nanmean(A, weights=weights)
-    # Fast and numerically precise:
-    variance = weighted_nanmean((A - average) ** 2, weights=weights)
-    return np.sqrt(variance)
 
 
 def make_dir(*paths):
@@ -377,8 +367,8 @@ def prepare_parser(parser):
     parser.add_argument("-IDE", help="Add when running from IDE to use internal settings", action="store_true")
 
 
-def run(argument_string = "", max_neighbourhood=7, filter_edges=0, prominence=0.08, min_peak_width=1.0, min_distance=5.0, multithreaded=False,
-        image_format='svg', testing=0, seed=23452987, show_graph=False, all_angles=False, force_recalculation=False, core_path='', filenames='all', absolute=False):
+def run(argument_string = "", max_neighbourhood=None, filter_edges=None, prominence=None, min_peak_width=None, min_distance=None, multithreaded=None,
+        image_format=None, testing=None, seed=None, show_graph=None, all_angles=None, force_recalculation=None, core_path=None, filenames=None, absolute=None):
     # = "-show_graph -c old -f test_angle_105,test angle 105"
 
     parser = argparse.ArgumentParser()
@@ -389,10 +379,12 @@ def run(argument_string = "", max_neighbourhood=7, filter_edges=0, prominence=0.
     else:
         args = parser.parse_args(argument_string.split())
 
-    args.filenames = " ".join(args.filenames).replace("\"", "").split(",")
+    if args.filenames != "all":
+        args.filenames = " ".join(args.filenames).replace("\"", "").split(",")
     args.core_path = " ".join(args.core_path).replace("\"", "")
-    #np.seterr(all='raise')
-    base_nan = (np.nan, np.nan, np.nan)
+
+    print(args.filenames)
+
     buff = 0
     st = 0 - buff
     en = 180 + buff
@@ -406,6 +398,38 @@ def run(argument_string = "", max_neighbourhood=7, filter_edges=0, prominence=0.
 
         #args.filenames = "all"
         args.filenames = ["test_angle_105"]
+
+
+    if max_neighbourhood is not None:
+        args.max_neighbourhood = int(max_neighbourhood)
+    if filter_edges is not None:
+        args.filter_edges = bool(filter_edges)
+    if prominence is not None:
+        args.prominence = float(prominence)
+    if min_peak_width is not None:
+        args.min_peak_width = float(min_peak_width)
+    if min_distance is not None:
+        args.min_distance = float(min_distance)
+    if multithreaded is not None:
+        args.multithreaded = bool(multithreaded)
+    if image_format is not None:
+        args.image_format = str(image_format)
+    if testing is not None:
+        args.testing = int(testing)
+    if seed is not None:
+        args.seed = int(seed)
+    if show_graph is not None:
+        args.show_graph = bool(show_graph)
+    if all_angles is not None:
+        args.all_angles = bool(all_angles)
+    if force_recalculation is not None:
+        args.force_recalculation = bool(force_recalculation)
+    if core_path is not None:
+        args.core_path = str(core_path)
+    if filenames is not None:
+        args.filenames = filenames
+    if absolute is not None:
+        args.absolute = bool(absolute)
 
 
     if args.absolute:
@@ -584,7 +608,7 @@ def run(argument_string = "", max_neighbourhood=7, filter_edges=0, prominence=0.
 
         with warnings.catch_warnings(action="ignore"):  # supressing annoying warnings about empty slices
             angles_avg_map = [
-                [[angular_average_weighted([d[0] for d in matched_angles_map[i][y][x]]) for x in range(len(xs))] for y
+                [[angular_weighted_nanmean([d[0] for d in matched_angles_map[i][y][x]]) for x in range(len(xs))] for y
                  in
                  range(len(ys))] for
                 i in
@@ -628,7 +652,7 @@ def run(argument_string = "", max_neighbourhood=7, filter_edges=0, prominence=0.
             angular_std = np.nanmean(std_avg_map[i])
             characteristic_sizes.append(characteristic_size(angular_std, window_size))
             characteristic_sizes_weights.append(np.nanmean(int_avg_map[i]))
-            lines.append([f"{main_peaks[i]}", f"{angular_average_weighted(ang_map, int_avg_map[i])}",
+            lines.append([f"{main_peaks[i]}", f"{angular_weighted_nanmean(ang_map, int_avg_map[i])}",
                           f"{angular_std}",
                           f"{np.nanmean(int_avg_map[i])}", f"{np.nanstd(int_avg_map[i])}",
                           f"{np.nanmean(std_avg_map[i])}", f"{np.nanstd(std_avg_map[i])}",
