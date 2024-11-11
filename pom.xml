@@ -13,8 +13,8 @@
 	</parent>
 
 	<groupId>com.wurgobes</groupId>
-	<artifactId>AngleAnalyzer</artifactId>
-	<version>0.1-SNAPSHOT</version>
+	<artifactId>RFT</artifactId>
+	<version>1.0</version>
 
 
 	<name>Rotated Fourier Transform</name>
@@ -72,7 +72,7 @@
 		<connection>scm:git:git://github.com/HohlbeinLab/</connection>
 		<developerConnection>scm:git:git@github.com:DrNjitram</developerConnection>
 		<tag>HEAD</tag>
-		<url>https://github.com/HohlbeinLab/sSMLMAnalyzer</url>
+		<url>https://github.com/HohlbeinLab/AnalyseDirectionality</url>
 	</scm>
 	<issueManagement>
 		<system>GitHub Issues</system>
@@ -83,11 +83,12 @@
 	</ciManagement>
 
 	<properties>
-		<package-name>com.wurgobes.AngleAnalyzer</package-name>
-		<main-class>com.wurgobes.AngleAnalyzer.AngleAnalyzer</main-class>
+		<package-name>com.wurgobes.RFT</package-name>
+		<main-class>com.wurgobes.RFT.RFT</main-class>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>WUR, Inc.</license.copyrightOwners>
-		<scijava.app.directory>H:\PhD\fiji-win64\Fiji.app</scijava.app.directory>
+		<scijava.app.directory>C:\Users\gobes001\LocalSoftware\fiji-win64\Fiji.app\</scijava.app.directory>
+		<scijava.app.subdirectory>plugins</scijava.app.subdirectory>
 	</properties>
 
 	<repositories>
@@ -115,11 +116,7 @@
             <groupId>sc.fiji</groupId>
             <artifactId>fiji-lib</artifactId>
         </dependency>
-		<dependency>
-			<groupId>com.github.DrNjitram</groupId>
-			<artifactId>OrientationJ</artifactId>
-			<version>8b80d2428f056dc2d11d1ccc7f4d99919016876d</version>
-		</dependency>
+
 
 
 	</dependencies>

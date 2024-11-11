@@ -27,13 +27,13 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="0.51717105"
-     inkscape:cx="373.18408"
-     inkscape:cy="600.38164"
+     inkscape:zoom="1.4627806"
+     inkscape:cx="1112.2652"
+     inkscape:cy="575.27423"
      inkscape:window-width="1920"
      inkscape:window-height="1017"
-     inkscape:window-x="1912"
-     inkscape:window-y="-8"
+     inkscape:window-x="-8"
+     inkscape:window-y="-4"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1"
      showgrid="false" /><defs
@@ -1900,7 +1900,7 @@
          font-size="32px"
          transform="matrix(0,-0.264583,0.264583,0,393.11134,552.88243)"
          id="text15-4"
-         style="font-size:24px;stroke-width:4.00001px">Intensity (a.u).</text><text
+         style="font-size:24px;stroke-width:4.00001px">amplitude (a.u).</text><text
          xml:space="preserve"
          style="font-size:24px;writing-mode:lr-tb;fill:#000000;stroke-width:4.00001px"
          x="1498.5371"
@@ -2020,7 +2020,7 @@
          font-size="32px"
          transform="matrix(0,-0.264583,0.264583,0,272.66251,552.35326)"
          id="text14-2"
-         style="font-size:24px;stroke-width:4.00001px">Intensity (a.u).</text><text
+         style="font-size:24px;stroke-width:4.00001px">amplitude (a.u).</text><text
          xml:space="preserve"
          style="font-size:24px;writing-mode:lr-tb;fill:#000000;stroke-width:4.00001px;stroke-linecap:butt;stroke-linejoin:round"
          x="1498.5371"
@@ -2094,7 +2094,7 @@
          font-size="32px"
          transform="matrix(0,-0.264583,0.264583,0,155.92234,552.88243)"
          id="text11-6"
-         style="font-size:24px;stroke-width:4.00001px">Intensity (a.u).</text><g
+         style="font-size:24px;stroke-width:4.00001px">amplitude (a.u).</text><g
          clip-path="url(#clip3-2)"
          transform="matrix(2.77778e-5,0,0,2.77778e-5,156.701,496.673)"
          id="g12-2"
