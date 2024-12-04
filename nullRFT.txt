@@ -1,11 +1,18 @@
-RFT
-#Thu May 23 15:22:50 CEST 2024
-end=61
+#RFT
+#Sat Nov 23 12:35:16 CET 2024
+PythonPath=py
+ScriptPath=C\:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\Python Scripts
+ShowGraphs=off
+autoPython=off
+end=300
+savePath=C\:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\Python Scripts\\input
+scan_save=on
 spnBuffer=0
 spnCutoff=2.0
 spnIntensityCutoff=0.2
 spnOverlap=0.75
-spnVectorFieldScale=3
-spnWindow=50
+spnVectorFieldLength=100.0
+spnVectorFieldScale=3.0
+spnWindow=150
 start=50
-step=2
+step=50

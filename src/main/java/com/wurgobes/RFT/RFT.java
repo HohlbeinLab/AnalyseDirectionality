@@ -37,9 +37,15 @@ import org.scijava.command.Command;
 import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -52,6 +58,7 @@ import static com.wurgobes.RFT.util.addLutLegend;
 
 @Plugin(type = Command.class, name = "Angle Analyzer", menuPath = "Plugins>Angle Analyzer>Analyze Angles", priority = Priority.HIGH)
 public class RFT<T extends RealType<T>> implements Command {
+    private static final Logger log = LoggerFactory.getLogger(RFT.class);
 
     // The services are passed through from ImageJ automatically
 
@@ -85,24 +92,21 @@ public class RFT<T extends RealType<T>> implements Command {
     ArrayList<Double> adjusted_stats = new ArrayList<>();
     ArrayList<Double> angle_map = new ArrayList<>();
     ImageStack fft_stack = null;
-    ImagePlus fft_imp = null;
     Plot hist_alt = new Plot("Angles", "Angle", "Intensity (a.u)");
-    Plot order_plot = new Plot("Order", "Neighbourhood Size", "Avg Order");
     ArrayList<Roi> rois = new ArrayList<>();
     Overlay overlay = new Overlay();
-
-
-    ImagePlus order_imp = null;
 
     int width;
     int height;
     int map_width = -1;
 
     ImagePlus mask = null;
-    ImagePlus sig_mask = null;
     ImagePlus max_imp = null;
 
+    Path save_path = null;
+
     RFTParameters params = new RFTParameters();
+    RFTDialogue<T> rftDialogue = null;
 
     static String macro_params = null;
 
@@ -117,7 +121,6 @@ public class RFT<T extends RealType<T>> implements Command {
         orderLUT.setLut("winter");
 
         hist_alt.savePlotObjects();
-        order_plot.savePlotObjects();
 
 
         if (macro_params == null)
@@ -125,19 +128,23 @@ public class RFT<T extends RealType<T>> implements Command {
 
 
         if (macro_params != null && !macro_params.isEmpty()) {
+            
             params.getMacroParameters(macro_params);
-            new RFTDialogue<>(this, params);
+            rftDialogue = new RFTDialogue<>(this, params);
         } else {
-            RFTDialogue<T> rftDialogue = new RFTDialogue<>(this, params);
+            rftDialogue = new RFTDialogue<>(this, params);
             rftDialogue.showDialog();
         }
     }
 
     public void setupImage() {
 
-        imp = WindowManager.getCurrentImage();
+        if (imp == null || !imp.isVisible())
+            imp = WindowManager.getCurrentImage();
 
-        logService.info("Angle Analyzer 1.0. Processing Image: " + imp.getTitle());
+
+
+        logService.info("RFT: Processing Image: " + imp.getTitle());
 
 
         width = imp.getWidth();
@@ -156,23 +163,31 @@ public class RFT<T extends RealType<T>> implements Command {
         imp.setOverlay(overlay);
     }
 
-    public void saveData(RFTParameters params) {
-        try {
-            Path path;
-            if(params.save_string == null) {
-                path = Paths.get("C:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\Python Scripts\\input\\window" + params.window + "_" + imp.getShortTitle() + ".csv");
-            }
-            else {
-                Files.createDirectories(Paths.get(params.save_string));
-                path = Paths.get(params.save_string, "window" + params.window + "_" + imp.getShortTitle() + ".csv");
-            }
+    public int saveData(RFTParameters params) {
+        if(params.save_string == null || params.save_string.isEmpty()) {
+            if (params.macro_mode)
+                logService.error("Please ensure that the save_path is set in the macro.");
+            else
+                logService.error("Please ensure that the save-path is set in the settings pane.");
+        } else {
+            try {
+                if (!params.save_string.contains("\\input\\")){
+                    params.save_string = Paths.get(params.save_string, "input").toAbsolutePath().toString();
+                }
 
-            logService.info("Saving to " + path);
-            SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), path);
-        } catch (IOException e) {
-            logService.error("Failed to save data to path: " + params.save_string);
-            throw new RuntimeException(e);
+                Files.createDirectories(Paths.get(params.save_string));
+                save_path = Paths.get(params.save_string, "window" + params.window + "_" + imp.getShortTitle() + ".csv");
+
+
+                logService.info("Saving to " + save_path);
+                SaveCSV(csv_data, new ArrayList<>(Arrays.asList("x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data")), save_path);
+                return 1;
+            } catch (IOException | InvalidPathException e) {
+                logService.error("Failed to save data to path: " + params.save_string);
+                logService.error(e.getMessage());
+            }
         }
+        return 0;
     }
 
     public void runVector(RFTParameters params){
@@ -210,11 +225,12 @@ public class RFT<T extends RealType<T>> implements Command {
             calculateAngles(params);
         }
         params.firstResults = Boolean.TRUE;
+        int result = 0;
+        if(params.macro_mode || (params.scanning_range && params.scan_save) || params.runPython)
+            result = saveData(params);
 
-        if(params.macro_mode || (params.scanning_range && params.scan_save)){
-            saveData(params);
-
-        }
+        if(params.runPython && result==1)
+            python(params);
 
 
         logService.info("Angle Analyzing Done");
@@ -228,10 +244,7 @@ public class RFT<T extends RealType<T>> implements Command {
         fft_stack = pair.getRight();
 
         if(!params.macro_mode){
-            if(fft_imp == null)
-                fft_imp = new ImagePlus("ffts", fft_stack);
-            else
-                fft_imp.setStack(fft_stack);
+
 
             addLutLegend(max_imp.getProcessor(), circularLut, "Angle", 1024, 0f, 180f);
             max_imp.repaintWindow();
@@ -239,8 +252,7 @@ public class RFT<T extends RealType<T>> implements Command {
 
         if (params.vector_overlay)
             calculateVectorField(params);
-        if (params.order)
-            calculateOrder(params);
+
 
         if(!params.macro_mode) {
             AngleGraph(params);
@@ -262,39 +274,6 @@ public class RFT<T extends RealType<T>> implements Command {
         applyOverlay(imp, overlay, rois, params);
     }
 
-    public void calculateOrder(RFTParameters params){
-        sig_map.clear();
-        order_plot.restorePlotObjects();
-        ImageProcessor sig_ip = calcSigMap(csv_data, sig_map, params);
-        ImageStack order_stack = order_parameter(csv_data, angle_map, sig_map, orderLUT, order_plot, map_width, width, height, params.window);
-
-
-        if(!params.macro_mode){
-            if(order_imp == null)
-                order_imp = new ImagePlus("order_parameter", order_stack);
-            else
-                order_imp.setStack(order_stack);
-
-            if(sig_mask == null)
-                sig_mask = new ImagePlus("Intensity Cutoff Mask", sig_ip);
-            else
-                sig_mask.setProcessor(sig_ip);
-
-            order_plot.setLimitsToFit(Boolean.TRUE);
-            order_plot.show();
-
-            if(order_imp.isVisible())
-                order_imp.updateAndRepaintWindow();
-            else
-                order_imp.show();
-
-            if(sig_mask.isVisible())
-                sig_mask.updateAndRepaintWindow();
-            else
-                sig_mask.show();
-        }
-    }
-
     public void toggleOverlay(){
         toggle_overlay(imp, overlay);
     }
@@ -307,7 +286,6 @@ public class RFT<T extends RealType<T>> implements Command {
     public void scanWindow(RFTParameters params){
         params.scanning_range = Boolean.TRUE;
         ImageStack angle_stack = null;
-        ImageStack order_graph_stack = null;
         for(int i = params.start; i <= params.end; i+=params.step){
             // For each window collect the angle dist and the order graph
             params.window = i;
@@ -315,23 +293,67 @@ public class RFT<T extends RealType<T>> implements Command {
             if(!params.macro_mode) {
                 if (angle_stack == null)
                     angle_stack = new ImageStack(hist_alt.getProcessor().getWidth(), hist_alt.getProcessor().getHeight());
-                if (order_graph_stack == null)
-                    order_graph_stack = new ImageStack(order_plot.getProcessor().getWidth(), order_plot.getProcessor().getHeight());
 
                 angle_stack.addSlice("window " + i, hist_alt.getProcessor().duplicate());
-                order_graph_stack.addSlice("window " + i, order_plot.getProcessor().duplicate());
             }
         }
 
         if (!params.macro_mode){
             ImagePlus angle_window_sweep = new ImagePlus("Angle vs Window", angle_stack);
-            ImagePlus order_window_sweep = new ImagePlus("Order vs Window", order_graph_stack);
             angle_window_sweep.show();
-            order_window_sweep.show();
         }
 
     }
 
+    public void python(RFTParameters params){
+        logService.info("Running Python");
+        if (!params.pythonPath.contains("py")){
+            logService.info("Could not find Python at " + params.pythonPath);
+            return;
+        }
+        Path scriptPath;
+        try {
+            scriptPath = Paths.get(params.scriptPath, "gaussian_order.py");
+        } catch (Exception e) {
+            logService.info("Could not find Script at " + params.scriptPath);
+            return;
+        }
+        if (! new File(scriptPath.toString()).exists()){
+            logService.info("Could not find Script at " + scriptPath);
+            return;
+        }
+        if (! new File(save_path.toString()).exists()){
+            logService.info("Could not find csv at " + scriptPath);
+            return;
+        }
+        try {
+            ProcessBuilder pb;
+            if (params.showGraphs)
+                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString(), "-show_graph" , "-absolute", "-c", params.save_string, params.python_arguments, "-f", "window" + params.window + "_" + imp.getShortTitle(), params.python_arguments);
+            else
+                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString() , "-absolute", "-c", params.save_string, params.python_arguments, "-f", "window" + params.window + "_" + imp.getShortTitle());
+            pb.redirectErrorStream(true);
+            Process pc = pb.start();
+            BufferedReader pythonInput = new BufferedReader(new InputStreamReader(pc.getInputStream()));
+
+            while (pc.isAlive()){
+                String s;
+                while ((s = pythonInput.readLine()) != null) {
+                    logService.info("[Python] " + s);
+                }
+
+            }
+
+        }
+        catch (IOException e) {
+            System.out.println("Failed to execute python Script. Did you set py?");
+            e.printStackTrace();
+        }
+    }
+
+    public void recordMacroParameters() {
+            rftDialogue.recordMacroParameters();
+    }
     // Only run from the IDE
     public static void main(final String... arguments) {
         debugging = true;

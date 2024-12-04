@@ -323,28 +323,21 @@ public class Settings {
             return;
         }
 
-        for (int i = 0; i < items.size(); i++) {
-            Item item = items.get(i);
+        for (Item item : items) {
             String value = props.getProperty(item.key, item.defaultValue);
             if (item.component instanceof JTextField) {
                 ((JTextField) item.component).setText(value);
-            }
-            else if (item.component instanceof JComboBox) {
+            } else if (item.component instanceof JComboBox) {
                 ((JComboBox<String>) item.component).setSelectedItem(value);
-            }
-            else if (item.component instanceof JCheckBox) {
+            } else if (item.component instanceof JCheckBox) {
                 ((JCheckBox) item.component).setSelected(value.equals("on"));
-            }
-            else if (item.component instanceof JToggleButton) {
+            } else if (item.component instanceof JToggleButton) {
                 ((JToggleButton) item.component).setSelected(value.equals("on"));
-            }
-            else if (item.component instanceof SpinnerInteger) {
+            } else if (item.component instanceof SpinnerInteger) {
                 ((SpinnerInteger) item.component).set((new Double(value)).intValue());
-            }
-            else if (item.component instanceof SpinnerDouble) {
+            } else if (item.component instanceof SpinnerDouble) {
                 ((SpinnerDouble) item.component).set(new Double(value));
-            }
-            else if (item.component instanceof JSlider) {
+            } else if (item.component instanceof JSlider) {
                 ((JSlider) item.component).setValue(Integer.parseInt(value));
             }
         }
@@ -398,6 +391,11 @@ public class Settings {
             new Msg(project, "Impossible to store settings in (" + fname + ")");
 
         }
+    }
+
+    public void record(String key, JFileChooser component, String defaultValue) {
+        Item item = new Item(key, component, defaultValue);
+        items.add(item);
     }
 
     /**

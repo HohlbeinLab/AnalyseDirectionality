@@ -32,24 +32,37 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
     private final SpinnerInteger spnScanEnd = new SpinnerInteger(61, 3, 100000, 1);
     private final SpinnerInteger spnScanStep = new SpinnerInteger(2, 2, 100000, 1);
 
+    private final JTextField txtSavePath = new JTextField("save");
+    private final JTextField txtPython = new JTextField("py");
+    private final JTextField txtCore = new JTextField("core");
+    private final JTextField pythonParams = new JTextField("params");
+    private final JButton savePathButton = new JButton("Choose...");
+    private final JButton pythonPathButton = new JButton("Choose...");
+    private final JButton corePathButton = new JButton("Choose...");
+
     private final JCheckBox showVectorFieldOverlay = new JCheckBox("Overlay", true);
     private final JCheckBox saveDuringScan = new JCheckBox("Save Scans", true);
+    private final JCheckBox runPython = new JCheckBox("Run Python", true);
+    private final JCheckBox showGraph = new JCheckBox("Show Graph", false);
     protected WalkBarOrientationJ walk = new WalkBarOrientationJ();
 
     protected JButton bnRun = new JButton("Run");
     protected JButton bnSave = new JButton("Save Data");
     protected JButton bnScan = new JButton("Window Size Scan");
+    protected JButton bnPython = new JButton("Save & Run Python");
 
 
-    private enum Job {NONE, RUN, VECTOR_FIELD, SAVE, CUTOFF, ORDER, VECTOR_SCALE, SCAN}
+    private enum Job {NONE, RUN, VECTOR_FIELD, SAVE, CUTOFF, ORDER, VECTOR_SCALE, SCAN, PYTHON, SAVE_PATH, PYTHON_PATH, CORE_PATH}
 
     private Job job = Job.NONE;
     private Thread thread = null;
 
+    JFileChooser fc = new JFileChooser();
 
     RFTDialogue(RFT<T> RFT, RFTParameters params) {
         this.RFT = RFT;
         this.params = params;
+        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         setTitle("RFT");
         if (params.macro_mode) {
             setParameters();
@@ -72,7 +85,20 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
             start(Job.SCAN);
         else if (e.getSource() == bnSave)
             start(Job.SAVE);
-
+        else if (e.getSource() == bnPython)
+            start(Job.PYTHON);
+        else if (e.getSource() == savePathButton)
+            start(Job.SAVE_PATH);
+        else if (e.getSource() == pythonPathButton)
+            start(Job.PYTHON_PATH);
+        else if (e.getSource() == corePathButton)
+            start(Job.CORE_PATH);
+        else if (e.getSource() == txtCore)
+            params.scriptPath = txtCore.getText();
+        else if (e.getSource() == txtSavePath)
+            params.save_string = txtSavePath.getText();
+        else if (e.getSource() == txtPython)
+            params.pythonPath = txtPython.getText();
     }
 
     private void start(Job job) {
@@ -117,7 +143,6 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
     @Override
     public void windowDeactivated(WindowEvent e) {
-
     }
 
     @Override
@@ -145,7 +170,26 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         if (job == Job.ORDER && params.firstResults) {
             RFT.AngleGraph(params);
             RFT.applyVectorField(params);
-            RFT.calculateOrder(params);
+        }
+        if (job == Job.PYTHON) {
+            RFT.saveData(params);
+            RFT.python(params);
+        }
+        if (job == Job.SAVE_PATH || job == Job.PYTHON_PATH || job == Job.CORE_PATH){
+
+            if (fc.showDialog(this, "Select Path...") == JFileChooser.APPROVE_OPTION)
+                switch(job){
+                    case SAVE_PATH:
+                        txtSavePath.setText(fc.getSelectedFile().getAbsolutePath());
+                        break;
+                    case PYTHON_PATH:
+                        txtPython.setText(fc.getSelectedFile().getAbsolutePath());
+                        break;
+                    case CORE_PATH:
+                        txtCore.setText(fc.getSelectedFile().getAbsolutePath());
+                        break;
+                }
+            getParameters();
         }
 
 
@@ -166,39 +210,46 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
     public void showDialog() {
         // Panel Tensor
-        GridToolbar pnTensor = new GridToolbar(false, 2);
-        pnTensor.place(0, 0, new JLabel("Processing Window"));
-        pnTensor.place(0, 2, spnWindow);
-        pnTensor.place(0, 3, new JLabel("pixel"));
-        pnTensor.place(1, 0, new JLabel("Overlap"));
-        pnTensor.place(1, 2, spnOverlap);
-        pnTensor.place(2, 0, new JLabel("Buffer"));
-        pnTensor.place(2, 2, spnBuffer);
+        GridToolbar pnOptions = new GridToolbar(false, 2);
+        pnOptions.place(0, 0, new JLabel("Processing Window"));
+        pnOptions.place(0, 2, spnWindow);
+        pnOptions.place(0, 3, new JLabel("pixels"));
+        pnOptions.place(1, 0, new JLabel("Overlap"));
+        pnOptions.place(1, 2, spnOverlap);
+        pnOptions.place(2, 0, new JLabel("Buffer"));
+        pnOptions.place(2, 2, spnBuffer);
+        pnOptions.place(2, 3, new JLabel("pixels"));
+        pnOptions.place(3, 2, runPython);
 
 
         GridPanel pnMain1 = new GridPanel("Processing", 2);
-        pnMain1.place(0, 0, pnTensor);
-        //pnMain1.place(1, 0, pnFeatures);
+        pnMain1.place(0, 0, pnOptions);
         pnMain1.place(2, 0, bnRun);
         pnMain1.place(3, 0, bnSave);
+        pnMain1.place(4, 0, bnPython);
 
         GridPanel pnMain = new GridPanel(false);
         pnMain.place(0, 0, pnMain1);
 
         GridPanel pnVectors = new GridPanel("Vector Field");
-        pnVectors.place(2, 0, new JLabel("Vector Length(%)"));
+        pnVectors.place(2, 0, new JLabel("Vector Length"));
         pnVectors.place(2, 1, spnVectorFieldLength);
-        pnVectors.place(3, 0, new JLabel("Vector Width (px)"));
+        pnVectors.place(2, 2, new JLabel("%"));
+        pnVectors.place(3, 0, new JLabel("Vector Width"));
         pnVectors.place(3, 1, spnVectorFieldWidth);
+        pnVectors.place(3, 2, new JLabel("pixels"));
         pnVectors.place(6, 1, showVectorFieldOverlay);
 
         GridPanel pnScan = new GridPanel("Scan");
         pnScan.place(2, 0, new JLabel("Window Start"));
         pnScan.place(2, 1, spnScanStart);
+        pnScan.place(2, 2, new JLabel("pixels"));
         pnScan.place(3, 0, new JLabel("Window Step"));
         pnScan.place(3, 1, spnScanStep);
+        pnScan.place(3, 2, new JLabel("pixels"));
         pnScan.place(4, 0, new JLabel("Window End"));
         pnScan.place(4, 1, spnScanEnd);
+        pnScan.place(4, 2, new JLabel("pixels"));
         pnScan.place(5, 1, bnScan);
         pnScan.place(6, 1, saveDuringScan);
 
@@ -215,13 +266,51 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         spnCutoff.addChangeListener(this);
         spnIntensityCutoff.addChangeListener(this);
         spnIntensityCutoff.addChangeListener(this);
+        runPython.addActionListener(this);
+        txtPython.addActionListener(this);
+        txtSavePath.addActionListener(this);
+        txtCore.addActionListener(this);
+        runPython.addActionListener(this);
+        savePathButton.addActionListener(this);
+        corePathButton.addActionListener(this);
+        pythonPathButton.addActionListener(this);
+        txtCore.addActionListener(this);
+        txtSavePath.addActionListener(this);
 
         pnMain.place(3, 0, pnVectors);
         pnMain.place(4, 0, pnCutoff);
         pnMain.place(5, 0, pnScan);
 
+        GridPanel pnMainSettings = new GridPanel(false);
+        GridPanel pnSettings = new GridPanel("Settings", 2);
+        GridPanel pnOtherOptions = new GridPanel("Settings");
+        pnOtherOptions.place(2, 0, new JLabel("Save Path"));
+        pnOtherOptions.place(2, 1, txtSavePath);
+        pnOtherOptions.place(2, 2, savePathButton);
+
+        GridPanel pnPythonOptions = new GridPanel("Python");
+        pnPythonOptions.place(2, 0, new JLabel("Python Path"));
+        pnPythonOptions.place(2, 1, txtPython);
+        pnPythonOptions.place(2, 2, pythonPathButton);
+        pnPythonOptions.place(3, 0, new JLabel("Script Path"));
+        pnPythonOptions.place(3, 1, txtCore);
+        pnPythonOptions.place(3, 2, corePathButton);
+        pnPythonOptions.place(4, 0, showGraph);
+        pnPythonOptions.place(5, 0, new JLabel("Python Parameters"));
+        pnPythonOptions.place(5, 1, pythonParams);
+
+        pnSettings.place(0, 0, pnOtherOptions);
+        pnSettings.place(1, 0, pnPythonOptions);
+
+        pnMainSettings.place(2, 0, pnSettings);
+
         Help help = new Help();
         help.setPreferredSize(pnMain.getSize());
+
+        Credits credits = new Credits();
+        credits.setPreferredSize(pnMain.getSize());
+
+        pnMainSettings.setPreferredSize(pnMain.getSize());
 
         JPanel pnHelp = new JPanel();
         pnHelp.setLayout(new BoxLayout(pnHelp, BoxLayout.PAGE_AXIS));
@@ -232,11 +321,12 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
 
         GridPanel pn = new GridPanel(false, 4);
         JTabbedPane tab = new JTabbedPane();
-        Credits credits = new Credits();
-        credits.setPreferredSize(pnMain.getSize());
+
         tab.add("Processing", pnMain);
+        tab.add("Settings", pnMainSettings);
         tab.add("Help", pnHelpAdvanced);
         tab.add("Credits", credits.getPane());
+
         pn.place(0, 0, tab);
         pn.place(1, 0, walk);
 
@@ -245,6 +335,7 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         bnRun.addActionListener(this);
         bnSave.addActionListener(this);
         bnScan.addActionListener(this);
+        bnPython.addActionListener(this);
 
         // Finalize
         addWindowListener(this);
@@ -259,17 +350,22 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         settings.record("spnOverlap", spnOverlap, "0.75");
         settings.record("spnCutoff", spnCutoff, "2");
         settings.record("spnIntensityCutoff", spnIntensityCutoff, "0.2");
-        settings.record("spnVectorFieldScale", spnVectorFieldLength, "100");
+        settings.record("spnVectorFieldLength", spnVectorFieldLength, "100");
         settings.record("spnVectorFieldScale", spnVectorFieldWidth, "3.0");
         settings.record("start", spnScanStart, "17");
         settings.record("end", spnScanEnd, "51");
         settings.record("step", spnScanStep, "2");
+        settings.record("scan_save", saveDuringScan, false);
 
+        settings.record("savePath", txtSavePath, "save");
+        settings.record("PythonPath", txtPython, "py");
+        settings.record("ScriptPath", txtCore, "script");
+        settings.record("ShowGraphs", showGraph, false);
+        settings.record("autoPython", runPython, false);
+        settings.record("pythonParams", pythonParams, "");
 
         settings.loadRecordedItems();
-        setParameters();
-
-
+        getParameters();
     }
 
     public void getParameters() {
@@ -286,6 +382,12 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         params.step = spnScanStep.get();
         params.scan_save = saveDuringScan.isSelected();
 
+        params.save_string = txtSavePath.getText();
+        params.runPython = runPython.isSelected();
+        params.pythonPath = txtPython.getText();
+        params.scriptPath = txtCore.getText();
+        params.showGraphs = showGraph.isSelected();
+        params.python_arguments = pythonParams.getText();
     }
 
     public void setParameters() {
@@ -303,9 +405,16 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         spnVectorFieldLength.set(params.vector_length*100);
         spnVectorFieldWidth.set(params.vector_width);
         saveDuringScan.setSelected(params.scan_save);
+
+        runPython.setSelected(params.runPython);
+        txtSavePath.setText(params.save_string);
+        txtPython.setText(params.pythonPath);
+        txtCore.setText(params.scriptPath);
+        showGraph.setSelected(params.showGraphs);
+        pythonParams.setText(params.python_arguments);
     }
 
-    private void recordMacroParameters() {
+    public void recordMacroParameters() {
         if (!Recorder.record)
             return;
 
@@ -318,9 +427,27 @@ class RFTDialogue<T extends RealType<T>> extends JDialog implements ActionListen
         options += "overlap=" + spnOverlap.get() + " ";
         options += "buffer=" + spnBuffer.get() + " ";
 
-        options += "vectorlength=" + spnVectorFieldLength.get() + " ";
-        options += "vectorwidth=" + spnVectorFieldWidth.get() + " ";
-        options += params.vector_overlay ? "vectoroverlay=True " : "vectoroverlay=False ";
+        options += "save_path=" + txtSavePath.getText() + " ";
+
+        options += "vector_length=" + spnVectorFieldLength.get() + " ";
+        options += "vector_width=" + spnVectorFieldWidth.get() + " ";
+        options += params.vector_overlay ? "vector_overlay=True " : "vector_overlay=False ";
+
+        if (saveDuringScan.isSelected()){
+            options += "scan_save=True ";
+            options += "start=" + spnScanStart.get() + " ";
+            options += "end=" + spnScanEnd.get() + " ";
+            options += "step=" + spnScanStep.get() + " ";
+        }
+
+        if (runPython.isSelected()){
+            options += "run_python=True ";
+            options += "python_path=" + txtPython.getText() + " ";
+            options += "script_path=" + txtCore.getText() + " ";
+            options += "python_arguments=" + params.python_arguments + " ";
+            options += "show_graphs=" + showGraph.isSelected() + " ";
+        }
+
 
         Recorder.record("run", plugin, options);
     }

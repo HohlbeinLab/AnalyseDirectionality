@@ -10,7 +10,7 @@ public class Constants {
     static public String version = "1.0";
     static public String date = "1st October 2024";
     static public String author = "Martijn Gobes";
-    static public String link = "";
+    static public String link = "https://github.com/HohlbeinLab/AnalyseDirectionality";
     static public String copyright = "(c) WUR 2024";
 }
 

@@ -8,7 +8,6 @@ public class RFTParameters {
 
     public boolean vector_overlay = true;
     public boolean macro_mode = false;
-    public boolean order = false;
 
     public int buffer				= 0;
     public int				window				= 50;
@@ -32,6 +31,12 @@ public class RFTParameters {
     public boolean scan_save = Boolean.TRUE;
 
     public String save_string = null;
+    public String pythonPath = null;
+    public String scriptPath = null;
+    public boolean showGraphs = Boolean.FALSE;
+    public boolean runPython = Boolean.FALSE;
+
+    public String python_arguments = "";
 
     public void getMacroParameters(String options) {
         macro_mode = true;
@@ -48,14 +53,20 @@ public class RFTParameters {
         scan_save = Boolean.parseBoolean(Macro.getValue(options, "scan_save", "True"));
 
         // Vector Field
-        vector_overlay = Macro.getValue(options, "vectoroverlay", "off").equals("on");
+        vector_overlay = Macro.getValue(options, "vector_overlay", "off").equals("on");
         vector_length = Double.parseDouble(Macro.getValue(options, "vector_length", "1"));
         vector_width = Integer.parseInt(Macro.getValue(options, "vector_width", "3"));
 
         // Saving
-        save_string = Macro.getValue(options, "path", null);
+        save_string = Macro.getValue(options, "save_path", null);
 
-        order = Boolean.parseBoolean(Macro.getValue(options, "path", "false"));
+        // Python
+        pythonPath = Macro.getValue(options, "python_path", null);
+        scriptPath = Macro.getValue(options, "script_path", null);
+        python_arguments = Macro.getValue(options, "python_arguments", null);
+
+        showGraphs = Boolean.parseBoolean(Macro.getValue(options, "show_graphs", "False"));
+        runPython = Boolean.parseBoolean(Macro.getValue(options, "run_python", "False"));
     }
 
 

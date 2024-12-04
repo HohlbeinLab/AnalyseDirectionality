@@ -24,45 +24,11 @@ public class Credits extends JEditorPane {
     private String	color		= "#222222";
     private String	background	= "#f8f8f8";
 
-    private String ref2 =
-            "R. Rezakhaniha et al. "
-                    + "Experimental Investigation of Collagen Waviness and Orientation in the Arterial "
-                    + "Adventitia Using Confocal Laser Scanning Microscopy,"
-                    + " Biomechanics and Modeling in Mechanobiology, 2012.\n";
-
-    private String bib2 =
-            "@ARTICLE(http://bigwww.epfl.ch/publications/rezakhaniha1201.html,\n" +
-                    "AUTHOR=\"Rezakhaniha, R. and Agianniotis, A. and Schrauwen, J.T.C. and\n" +
-                    "        Griffa, A. and Sage, D. and Bouten, C.V.C. and van de Vosse, F.N.\n" +
-                    "        and Unser, M. and Stergiopulos, N.\",\n" +
-                    "TITLE=\"Experimental Investigation of Collagen Waviness and Orientation\n" +
-                    "        in the Arterial Adventitia Using Confocal Laser Scanning\n" +
-                    "        Microscopy\",\n" +
-                    "JOURNAL=\"Biomechanics and Modeling in Mechanobiology\",\n" +
-                    "YEAR=\"2012\",\n" +
-                    "volume=\"11\",\n" +
-                    "number=\"3-4\",\n" +
-                    "pages=\"461--473\",\n" +
-                    "month=\"\",\n" +
-                    "note=\"\")";
 
     private String ref1 =
-            "E. Fonck et al. "
-                    + "Effect of Aging on Elastin Functionality in Human Cerebral Arteries,"
-                    + " Stroke, 2009.\n";
-    String bib1 =
-            "@ARTICLE(http://bigwww.epfl.ch/publications/fonck0901.html,\n" +
-                    "AUTHOR=\"Fonck, E. and Feigl, G.G. and Fasel, J. and Sage, D. and Unser,\n" +
-                    "        M. and R{\\\"{u}}fenacht, D.A. and Stergiopulos, N.\",\n" +
-                    "TITLE=\"Effect of Aging on Elastin Functionality in Human Cerebral\n" +
-                    "        Arteries\",\n" +
-                    "JOURNAL=\"Stroke\",\n" +
-                    "YEAR=\"2009\",\n" +
-                    "volume=\"40\",\n" +
-                    "number=\"7\",\n" +
-                    "pages=\"2552--2556\",\n" +
-                    "month=\"July\",\n" +
-                    "note=\"\")";
+            "M.I. Gobes et al., "
+                    + "Rotated Fourier transform (RFT) enables the quantification of anisotropic structure in high moisture plant-protein extrudates, "
+                    + "In Preparation, Food Structure, 2024.";
 
     private String ref0 =
             "Z. Püspöki et al., "
@@ -113,20 +79,14 @@ public class Credits extends JEditorPane {
         append("</div>");
 
         append("h2", "Reference on the method");
-        append("p", ref0);
-
-        append("h2", "Reference on angular distribution");
         append("p", ref1);
 
-        append("h2", "Reference on local measurements");
-        append("p", ref2);
+        append("h2", "Reference on OrientationJ");
+        append("p", ref0);
 
         append("h2", "BibTeX");
         append("pre", bib0);
-        append("h2", "BibTeX");
-        append("pre", bib1);
-        append("h2", "BibTeX");
-        append("pre", bib2);
+
     }
 
     @Override

@@ -352,22 +352,22 @@ def prepare_parser(parser):
     parser.add_argument("-prominence", help="Percentage of max value above minimum that a peak must have", type=float, default=0.08)
     parser.add_argument("-min_peak_width", help="Minimum width (°) a peak must have", type=float, default=1.0)
     parser.add_argument("-min_distance", help="Minimum distance (°) between peaks ", type=float, default=5.0)
-    parser.add_argument("-multithreaded", "-m", help="Enable of Disable Multithreading", action="store_false")
+    parser.add_argument("-singlethreaded", "-s", help="Disable Multithreading", action="store_false")
     parser.add_argument("-image_format", help="Image format to export matplotlib graphs in", type=str, default="svg")
     parser.add_argument("-testing", help="Will display detailed information on a single window", type=int, default=0)
     parser.add_argument("-seed", help="Seeded value to use for Numpy", type=int, default=23452987)
     parser.add_argument("-show_graph", help="Shows graphs", action="store_true")
     parser.add_argument("-all_angles", help="Calculate WOP for individual clustered angles", action="store_true")
-    parser.add_argument("-force_recalculation", "-force", help="Force recalculation of the pickle file", action="store_true")
+    parser.add_argument("-force_recalculation", "-r", help="Force recalculation of the pickle file", action="store_true")
 
-    parser.add_argument("-core_path", "-p", help="Folder to use as input. Use '-a' for absolute path, otherwise will search in '.\\input\\<core_path>'", type=str, default = "", nargs="+")
+    parser.add_argument("-core_path", "-c", help="Folder to use as input. Use '-a' for absolute path, otherwise will search in '.\\input\\<core_path>'", type=str, default = "", nargs="+")
     parser.add_argument("-absolute", "-a", help="Use the core path absolutely", action="store_true")
     parser.add_argument("-filenames", '-f', help="Filename to use as input (Extension CSV) or 'all' for all filenames. Separate filenames by ','. This will recursively search all folders not named 'results' or 'pickles'.", nargs="+", type=str, default="all")
 
     parser.add_argument("-IDE", help="Add when running from IDE to use internal settings", action="store_true")
 
 
-def run(argument_string = "", max_neighbourhood=None, filter_edges=None, prominence=None, min_peak_width=None, min_distance=None, multithreaded=None,
+def run(argument_string = "", max_neighbourhood=None, filter_edges=None, prominence=None, min_peak_width=None, min_distance=None, singlethreaded=None,
         image_format=None, testing=None, seed=None, show_graph=None, all_angles=None, force_recalculation=None, core_path=None, filenames=None, absolute=None):
     # = "-show_graph -c old -f test_angle_105,test angle 105"
 
@@ -393,11 +393,11 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         args.testing = 0
 
         args.show_graph = True
-        args.core_path = r"old"
+        args.core_path = r""
 
 
         #args.filenames = "all"
-        args.filenames = ["test_angle_105"]
+        args.filenames = ["window100_coronal_top_A_crop", "window300_coronal_top_A_crop"]
 
 
     if max_neighbourhood is not None:
@@ -410,8 +410,8 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         args.min_peak_width = float(min_peak_width)
     if min_distance is not None:
         args.min_distance = float(min_distance)
-    if multithreaded is not None:
-        args.multithreaded = bool(multithreaded)
+    if singlethreaded is not None:
+        args.singlethreaded = bool(singlethreaded)
     if image_format is not None:
         args.image_format = str(image_format)
     if testing is not None:
@@ -433,9 +433,15 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
 
 
     if args.absolute:
-        load_path = os.path.join(args.core_path, "input")
+        if not 'input' in args.core_path.split(os.sep):
+            load_path = os.path.join(args.core_path, "input")
+        else:
+            load_path = args.core_path
+            drive, path = os.path.splitdrive(args.core_path)
+            args.core_path = os.path.join(drive, os.sep, *path.split(os.sep)[1:path.split(os.sep).index("input")])
     else:
         load_path = os.path.join(".", "input", args.core_path)
+
 
     np.random.seed(args.seed)
     excel_book = Workbook()
@@ -444,7 +450,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
     overview_sheet.append(["Name"])
     filepaths = []
 
-    if args.multithreaded:
+    if not args.singlethreaded:
         thread_pool = Pool()
 
     if args.filenames == "all":
@@ -478,8 +484,13 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         else:
             results_path = os.path.join(".", "results", *folder_path.split(os.sep)[2:], filename)
             pickle_path = os.path.join(".", "pickles", *folder_path.split(os.sep)[2:])
-
-        print(f"{filename}")
+        print(load_path)
+        print(filepath)
+        print(folder_path)
+        print(args.core_path)
+        print(pickle_path)
+        print(results_path)
+        print(filename)
         excel_sheet = excel_book.create_sheet(filename)
         overview_sheet.append([filename])
 
@@ -515,14 +526,14 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         if os.path.isfile(pickle_filename) and not args.force_recalculation:
             with open(pickle_filename, 'rb') as pickle_file:
                 results = pickle.load(pickle_file)
-                print(f"Loaded pickle with {len(results)} rows")
+                print(rf"Loaded {pickle_filename} with {len(results)} rows")
         else:
             if args.testing:
                 visualise_fit(fitting_class_instance, RFT, args.testing)
                 exit()
 
             start_time = time.time()
-            if not args.multithreaded:
+            if args.singlethreaded:
                 results = []
                 for i in tqdm(range(RFT.shape[0])):
                     results.append(fitting_class_instance.fit((RFT[i, 8:], i, RFT[i, 5])))
@@ -532,6 +543,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
                                                                                 range(RFT.shape[0])]), total=RFT.shape[0]))
             print(f"Time taken: {time.time() - start_time}")
             with open(pickle_filename, 'wb') as pickle_file:
+                print(f"Saving pickle file to {pickle_filename}")
                 pickle.dump(results, pickle_file)
 
         coords = [RFT[i, :2] for i in range(RFT.shape[0])]
@@ -666,7 +678,9 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
                        np.array(std_avg_map[i]), delimiter=",")
             np.savetxt(os.path.join(results_path, "raw", f"{filename}_{main_peaks[i]:.0f}_intensity_raw.csv"),
                        np.array(int_avg_map[i]), delimiter=",")
-            if args.show_graph: plt.show()
+            if args.show_graph:
+                plt.show(block=False)
+                plt.pause(0.001)
 
         stats_file.write("\n")
         lines.append(["characteristic size (px)", f"{weighted_nanmean(characteristic_sizes, characteristic_sizes_weights)}"])
@@ -695,7 +709,9 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         ax3.set_title(f"Peak Angle")
         ax3.set_title(f"Sum Intensities")
         plt.savefig(os.path.join(results_path, f"{filename}_overall.{args.image_format}"))
-        if args.show_graph: plt.show()
+        if args.show_graph:
+            plt.show(block=False)
+            plt.pause(0.001)
         np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_angle_raw.csv"), np.array(peak_angle_map),
                    delimiter=",")
         np.savetxt(os.path.join(results_path, "raw", f"{filename}_peak_intensity_raw.csv"),
@@ -825,7 +841,9 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
 
             fig.tight_layout()
             plt.savefig(os.path.join(results_path, f"{filename}_order_{ang}.{args.image_format}"))
-            if args.show_graph: plt.show()
+            if args.show_graph:
+                plt.show(block=False)
+                plt.pause(0.001)
 
             excel_sheet.append(["", ""])
             for row in range(1, len(lines) + 1):
@@ -863,8 +881,14 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         np.savetxt(os.path.join(results_path, "raw", f"{filename}_intensity_map_raw.csv"),
                    np.array(img_intensity_map), delimiter=",")
 
-    excel_book.save(os.path.join("." if not args.absolute else args.core_path, "results", args.core_path if args.core_path else filename,
-                                 f"{os.path.basename(args.core_path) if args.core_path else filename}_overview.xlsx"))
-
+    if args.absolute:
+        excel_path = os.path.join(args.core_path, "results", *folder_path.split(os.sep)[args.core_path.count(os.sep) + 2:],
+                                  f"{os.path.basename(args.core_path) if args.core_path and len(filepaths)>1 else filename}_overview.xlsx")
+    else:
+        excel_path =os.path.join(".", "results", args.core_path if args.core_path else filename,
+                                     f"{os.path.basename(args.core_path) if args.core_path and len(filepaths)>1 else filename}_overview.xlsx")
+    excel_book.save(excel_path)
+    if not args.IDE and args.show_graph: plt.show()
+    print("Saving results to", excel_path)
 if __name__ == "__main__":
     run()

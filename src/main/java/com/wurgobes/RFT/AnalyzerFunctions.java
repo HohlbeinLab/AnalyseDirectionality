@@ -21,8 +21,7 @@ import static com.wurgobes.RFT.util.addLutLegend;
 public class AnalyzerFunctions {
 
     static Pair<Integer, ImageStack> run(ImagePlus imp, ImagePlus max_imp, ImagePlus mask, ArrayList<ArrayList<Double>> csv_data, ArrayList<Double> angle_map, OwnColorTable circularLut, RFTParameters params){
-        double min = Double.MAX_VALUE;
-        double max = -1;
+
 
         int winspace = (int) Math.ceil(params.window*(1-params.overlap));
         int width_mod = params.window + params.buffer;
@@ -55,16 +54,11 @@ public class AnalyzerFunctions {
                 int index = 0;
                 for (int i = 0; i < profile.length; i++) {
                     index = profile[i] > profile[index] ? i : index;
-                    if (profile[i] < min)
-                        min = profile[i];
-                    else if (profile[i] > max)
-                        max = profile[i];
-
                 }
-                double angle = (double) index /(r_width)*180; //angle in degrees from 0-180
+                double peak_angle = (double) index /(r_width)*180; //angle in degrees from 0-180
 
                 if(!params.scanning_range & !params.macro_mode) {
-                    Color color = circularLut.getColor(angle, 180f, 0);
+                    Color color = circularLut.getColor(peak_angle, 180f, 0);
                     max_ip.setColor(color);
                     max_ip.fillRect(x, y, params.window, params.window);
                     max_imp.repaintWindow();
@@ -73,8 +67,8 @@ public class AnalyzerFunctions {
 
                 double median = getMedian(mask.getProcessor(), x, y, params.window, params.window);
 
-                angle_map.add(angle);
-                ArrayList<Double> curr_data = new ArrayList<>(Arrays.asList((double) x, (double) y, (double) params.window, (double) params.window, (double) index, median, angle));
+                angle_map.add(peak_angle);
+                ArrayList<Double> curr_data = new ArrayList<>(Arrays.asList((double) x, (double) y, (double) params.window, (double) params.window, (double) index, median, peak_angle));
                 curr_data.addAll(DoubleStream.of(profile).boxed().collect(Collectors.toCollection(ArrayList::new))); // profile data
 
                 csv_data.add(curr_data);
@@ -83,27 +77,6 @@ public class AnalyzerFunctions {
                 map_width = csv_data.size();
         }
         return  Pair.of(map_width, fft_stack);
-    }
-
-    static ImageProcessor calcSigMap(ArrayList<ArrayList<Double>> csv_data, ArrayList<Boolean> sig_map, RFTParameters params) {
-        ImageProcessor sig_ip = new ByteProcessor(params.width, params.height);
-        //0, 1, 2,     3,      4,     5,           6,     7,         8+
-        //x, y, width, height, index, mask median, angle, relevance, FT data
-        for (ArrayList<Double> c : csv_data) {
-            if (c.get(5) > (params.intensity_cutoff * 255)) {
-                sig_map.add(Boolean.TRUE);
-                sig_ip.setColor(Color.white);
-            } else {
-                sig_map.add(Boolean.FALSE);
-                sig_ip.setColor(Color.black);
-            }
-
-            int x = c.get(0).intValue();
-            int y = c.get(1).intValue();
-            sig_ip.fillRect(x, y, params.window, params.window);
-
-        }
-        return sig_ip;
     }
 
     static void calcVectorMap(ArrayList<Roi> rois, ArrayList<ArrayList<Double>> csv_data, RFTParameters params){
@@ -131,104 +104,6 @@ public class AnalyzerFunctions {
             overlay.add(roi);
         imp.setOverlay(overlay);
 
-    }
-
-    static ImageStack order_parameter(ArrayList<ArrayList<Double>> csv_data, ArrayList<Double> angle_map, ArrayList<Boolean> sig_map, OwnColorTable orderLUT, Plot order_plot, int map_width, int width, int height, int window){
-        /*
-         * neighbourhood size search
-         * from min to max size, steps of 2
-         * heavily depends on window size
-         * max size is maximum square that can fit (min of length and width)
-         *
-         * map_width - width of map
-         * map_length (angle_map.size()/map_width) - length of map
-         */
-        int map_length = angle_map.size()/map_width;
-        ArrayList<ArrayList<Double>> order_parameter_map = new ArrayList<>(); // per neighbourhood size (3, 5, 7, ...) a flat list of order parameters
-
-        ArrayList<Double> angle_map_filtered = maskList(angle_map, sig_map, Double.NaN);
-
-        ArrayList<Double> average_order =  new ArrayList<>();
-        ArrayList<Integer> neigh_sizes =  new ArrayList<>();
-
-
-        for(int neighbourhood_size = 3; neighbourhood_size < Math.min(map_length, map_width); neighbourhood_size += 2) {
-            ArrayList<Double> order_parameter_submap = new ArrayList<>(angle_map.size());
-            neigh_sizes.add(neighbourhood_size);
-
-            int half_window = neighbourhood_size % 2 == 1 ? (neighbourhood_size-1)/2 : neighbourhood_size/2;
-            for(int i = 0; i < angle_map.size(); i++) {
-                // skip edge values
-                if(
-                        i % map_width < half_window || // left
-                        i % map_width >= map_width - half_window || // right
-                        i < map_width * half_window || // top
-                        i / map_width > map_length - half_window // bottom
-                )
-                    order_parameter_submap.add(Double.NaN);
-                else {
-                    ArrayList<Double> value_window = getValuesWindow(angle_map_filtered, i, neighbourhood_size, map_width);
-                    double central_value = value_window.remove(value_window.size()/2); // Remove Central Value
-                    if(Double.isNaN(central_value)){
-                        order_parameter_submap.add(Double.NaN);
-                    } else {
-                        ArrayList<Double> cos2window = ListCos(value_window, central_value);
-
-                        double order_param = 2*(mean(cos2window)-0.5);
-                        order_parameter_submap.add(order_param);
-                    }
-                }
-            }
-            average_order.add(mean(order_parameter_submap));
-            order_parameter_map.add(order_parameter_submap);
-        }
-
-
-        ImageStack order_stack = new ImageStack(width, height);
-
-
-
-        int neighbourhood_size = 3;
-        for (int i = 0; i < order_parameter_map.size(); i++) { // single neighbourhood size
-            // "x", "y", "width", "height", "Max Index", "Mask Median", "Angle", "Relevance?", "Profile Data"
-            ArrayList<Double> order_submap = order_parameter_map.get(i);
-            ColorProcessor order_ip = new ColorProcessor(width, height);
-
-            for (int j = 0; j < order_submap.size(); j++) { // individual x_y
-                ArrayList<Double> metadata = csv_data.get(j);
-                int x = metadata.get(0).intValue();
-                int y = metadata.get(1).intValue();
-
-                double value = order_submap.get(j);
-                Color color;
-                if (Double.isNaN(value)) {
-                    color = Color.black;
-                } else {
-                    color = orderLUT.getColor(order_submap.get(j), 0.0, 1.0);
-                }
-
-                order_ip.setColor(color);
-                order_ip.fillRect(x, y, window, window);
-            }
-            addLutLegend(order_ip, orderLUT, "Order Parameter", 1024, 0.0, 1.0);
-
-            order_stack.addSlice("NH " + neighbourhood_size, order_ip, i);
-            neighbourhood_size += 2;
-
-        }
-        float[] average_order_hist = new float[average_order.size()];
-        for(int i = 0; i < average_order.size(); i++)
-            average_order_hist[i] =  average_order.get(i).floatValue();
-
-        float[] average_order_hist_x = new float[neigh_sizes.size()];
-        for(int i = 0; i < neigh_sizes.size(); i++)
-            average_order_hist_x[i] =  neigh_sizes.get(i).floatValue();
-
-
-        order_plot.addPoints(average_order_hist_x, average_order_hist, null, Plot.toShape("line"), "");
-
-
-        return order_stack;
     }
 
     static void calc_adjusted_stats(ArrayList<Double> adjusted_stats, ArrayList<ArrayList<Double>> csv_data){
@@ -259,7 +134,7 @@ public class AnalyzerFunctions {
     }
 
     static void createAngleGraph(ImageStack fft_stack, ArrayList<ArrayList<Double>> csv_data, double cutoff, Plot hist_alt){
-        int hist_size = fft_stack.getWidth()/2;
+        int hist_size = fft_stack.getWidth();
         float[] histogram_fft_o = new float[hist_size];
         float[] histogram_fft_u = new float[hist_size];
         float[] histogram_fft_a = new float[hist_size];
@@ -270,7 +145,7 @@ public class AnalyzerFunctions {
         for(int i = 1; i <= fft_stack.size(); i++){
             ImageProcessor fft_slice = fft_stack.getProcessor(i);
             ImagePlus fft_dummy = new ImagePlus("dummy", fft_slice);
-            fft_dummy.setRoi(0, 3, (fft_dummy.getWidth()/2), Math.min(fft_dummy.getHeight(), 22));
+            fft_dummy.setRoi(0, 3, fft_dummy.getWidth(), Math.min(fft_dummy.getHeight(), 22));
             ProfilePlot profilePlot = new ProfilePlot(fft_dummy);
             double[] profile = profilePlot.getProfile();
 
@@ -285,12 +160,14 @@ public class AnalyzerFunctions {
                     histogram_fft_a[profile.length - j - 1] += profile[j];
                 }
         }
+
+        hist_alt.setColor(Color.green);
+        hist_alt.addPoints(xValues_fft, histogram_fft_a, null, Plot.toShape("line"), "Total");
         hist_alt.setColor(Color.red);
         hist_alt.addPoints(xValues_fft, histogram_fft_o, null, Plot.toShape("line"), "Over Threshold");
         hist_alt.setColor(Color.blue);
         hist_alt.addPoints(xValues_fft, histogram_fft_u, null, Plot.toShape("line"), "Under Threshold");
-        hist_alt.setColor(Color.green);
-        hist_alt.addPoints(xValues_fft, histogram_fft_a, null, Plot.toShape("line"), "Total");
+
 
         hist_alt.addLegend(null);
         hist_alt.setLimitsToFit(true);
