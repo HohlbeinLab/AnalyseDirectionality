@@ -43,7 +43,7 @@ public class RFTParameters {
         //Own stuff
         buffer = Integer.parseInt(Macro.getValue(options, "buffer", "0"));
         window = Integer.parseInt(Macro.getValue(options, "window", "50"));
-        cutoff = Integer.parseInt(Macro.getValue(options, "cutoff", "2"));
+        cutoff = Double.parseDouble(Macro.getValue(options, "cutoff", "2.0"));
         overlap = Double.parseDouble(Macro.getValue(options, "overlap", "0.75"));
         intensity_cutoff = Double.parseDouble(Macro.getValue(options, "intensity_cutoff", "0.2"));
         start = Integer.parseInt(Macro.getValue(options, "start", "50"));

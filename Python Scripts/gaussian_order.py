@@ -1,5 +1,6 @@
 import os
 import pickle
+import sys
 from typing import Any, Iterable
 
 import matplotlib as mpl
@@ -352,26 +353,26 @@ def prepare_parser(parser):
     parser.add_argument("-prominence", help="Percentage of max value above minimum that a peak must have", type=float, default=0.08)
     parser.add_argument("-min_peak_width", help="Minimum width (°) a peak must have", type=float, default=1.0)
     parser.add_argument("-min_distance", help="Minimum distance (°) between peaks ", type=float, default=5.0)
-    parser.add_argument("-singlethreaded", "-s", help="Disable Multithreading", action="store_false")
+    parser.add_argument("-singlethreaded", "-s", help="Disable Multithreading", action="store_true")
     parser.add_argument("-image_format", help="Image format to export matplotlib graphs in", type=str, default="svg")
     parser.add_argument("-testing", help="Will display detailed information on a single window", type=int, default=0)
     parser.add_argument("-seed", help="Seeded value to use for Numpy", type=int, default=23452987)
     parser.add_argument("-show_graph", help="Shows graphs", action="store_true")
     parser.add_argument("-all_angles", help="Calculate WOP for individual clustered angles", action="store_true")
-    parser.add_argument("-force_recalculation", "-r", help="Force recalculation of the pickle file", action="store_true")
+    parser.add_argument("-no_recalculation", "-r", help="Store intermediate fitting results in a pickle file", action="store_true")
 
     parser.add_argument("-core_path", "-c", help="Folder to use as input. Use '-a' for absolute path, otherwise will search in '.\\input\\<core_path>'", type=str, default = "", nargs="+")
     parser.add_argument("-absolute", "-a", help="Use the core path absolutely", action="store_true")
-    parser.add_argument("-filenames", '-f', help="Filename to use as input (Extension CSV) or 'all' for all filenames. Separate filenames by ','. This will recursively search all folders not named 'results' or 'pickles'.", nargs="+", type=str, default="all")
+    parser.add_argument("-filenames", '-f', help="Filename to use as input (Extension CSV) or 'all' for all filenames. Separate filenames by ','. Setting 'all' will recursively search all folders not named 'results' or 'pickles'.", nargs="+", type=str, default="all")
 
     parser.add_argument("-IDE", help="Add when running from IDE to use internal settings", action="store_true")
 
 
 def run(argument_string = "", max_neighbourhood=None, filter_edges=None, prominence=None, min_peak_width=None, min_distance=None, singlethreaded=None,
-        image_format=None, testing=None, seed=None, show_graph=None, all_angles=None, force_recalculation=None, core_path=None, filenames=None, absolute=None):
-    # = "-show_graph -c old -f test_angle_105,test angle 105"
+        image_format=None, testing=None, seed=None, show_graph=None, all_angles=None, no_recalculation=None, core_path=None, filenames=None, absolute=None):
+    #argument_string = "-c C:\\Users\\gobes001\\LocalSoftware\\AnalyseDirectionality\\test_path\\input -absolute -f window250_15cm_coronal_top_A_crop"
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Analyses software for RFT", epilog="Find information at https://github.com/HohlbeinLab/AnalyseDirectionality")
     prepare_parser(parser)
 
     if not argument_string:
@@ -383,7 +384,6 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         args.filenames = " ".join(args.filenames).replace("\"", "").split(",")
     args.core_path = " ".join(args.core_path).replace("\"", "")
 
-    print(args.filenames)
 
     buff = 0
     st = 0 - buff
@@ -391,11 +391,8 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
 
     if args.IDE: # change defaults if needed
         args.testing = 0
-
         args.show_graph = True
         args.core_path = r""
-
-
         #args.filenames = "all"
         args.filenames = ["window100_coronal_top_A_crop", "window300_coronal_top_A_crop"]
 
@@ -422,8 +419,8 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         args.show_graph = bool(show_graph)
     if all_angles is not None:
         args.all_angles = bool(all_angles)
-    if force_recalculation is not None:
-        args.force_recalculation = bool(force_recalculation)
+    if no_recalculation is not None:
+        args.no_recalculation = bool(no_recalculation)
     if core_path is not None:
         args.core_path = str(core_path)
     if filenames is not None:
@@ -475,6 +472,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
 
     for filepath in filepaths:
         filename = os.path.basename(filepath)[:-4]
+        print(f"Processing {filename}")
         if "\\" in filename or "/" in filename:  # Some POSIX fun
             filename = filename.split("\\")[-1].split("/")[-1][:-4]
         folder_path = os.path.dirname(filepath)
@@ -484,13 +482,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         else:
             results_path = os.path.join(".", "results", *folder_path.split(os.sep)[2:], filename)
             pickle_path = os.path.join(".", "pickles", *folder_path.split(os.sep)[2:])
-        print(load_path)
-        print(filepath)
-        print(folder_path)
-        print(args.core_path)
-        print(pickle_path)
-        print(results_path)
-        print(filename)
+
         excel_sheet = excel_book.create_sheet(filename)
         overview_sheet.append([filename])
 
@@ -523,7 +515,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
 
         pickle_filename = os.path.join(pickle_path, f"{filename}.pickle")
 
-        if os.path.isfile(pickle_filename) and not args.force_recalculation:
+        if os.path.isfile(pickle_filename) and args.no_recalculation:
             with open(pickle_filename, 'rb') as pickle_file:
                 results = pickle.load(pickle_file)
                 print(rf"Loaded {pickle_filename} with {len(results)} rows")

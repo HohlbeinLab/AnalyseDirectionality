@@ -113,6 +113,8 @@ public class RFT<T extends RealType<T>> implements Command {
     @Override
     public void run() {
         logService.info("Loaded RFT V1.0");
+        params.macro_mode = false;
+        macro_params = null;
 
         circularLut = new OwnColorTable(lutService, logService);
         circularLut.setLut("spectrum");
@@ -329,9 +331,9 @@ public class RFT<T extends RealType<T>> implements Command {
         try {
             ProcessBuilder pb;
             if (params.showGraphs)
-                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString(), "-show_graph" , "-absolute", "-c", params.save_string, params.python_arguments, "-f", "window" + params.window + "_" + imp.getShortTitle(), params.python_arguments);
+                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString(), "-show_graph" , "-c", params.save_string, (params.python_arguments + "-a").trim(), "window" + params.window + "_" + imp.getShortTitle(), params.python_arguments);
             else
-                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString() , "-absolute", "-c", params.save_string, params.python_arguments, "-f", "window" + params.window + "_" + imp.getShortTitle());
+                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString() , "-c", params.save_string, (params.python_arguments+"-a").trim(), "window" + params.window + "_" + imp.getShortTitle());
             pb.redirectErrorStream(true);
             Process pc = pb.start();
             BufferedReader pythonInput = new BufferedReader(new InputStreamReader(pc.getInputStream()));
