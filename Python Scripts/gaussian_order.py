@@ -739,7 +739,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
             fig, axes = plt.subplots(len(neigh_sizes) if len(neigh_sizes) > 1 else 2,
                                      len(labels) if ang != "all" else len(labels_all), dpi=400,
                                      figsize=(
-                                         6.4 * 1.25 * (1.4 if ang != "all" else 0.7), 4.8 * 1 * len(neigh_sizes) / 6))
+                                         6.4 * 2.5 * (1.4 if ang != "all" else 0.7), 4.8 * 2 * len(neigh_sizes) / 6))
             fig.text(0.015, 0.5, f"Angle\n{ang}", fontsize=14)
             text = [f"{ang}: Neighbourhood size "] + flatten(
                 [["mean " + lbl, "std " + lbl] for lbl in (labels if ang != "all" else labels_all)])

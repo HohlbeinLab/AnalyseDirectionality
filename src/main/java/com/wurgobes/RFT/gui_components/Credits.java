@@ -28,7 +28,7 @@ public class Credits extends JEditorPane {
     private String ref1 =
             "M.I. Gobes et al., "
                     + "Rotated Fourier transform (RFT) enables the quantification of anisotropic structure in high moisture plant-protein extrudates, "
-                    + "In Preparation, Food Structure, 2024.";
+                    + "In Preparation";
 
     private String ref0 =
             "Z. Püspöki et al., "
