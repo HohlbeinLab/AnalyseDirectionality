@@ -1,11 +1,25 @@
-# Angle Analyzer
+# RFT - Angle Analyzer
 
 This package encompasses both the ImageJ plugin RFT, and the scripts used to further process the data.
 
-## ImageJ
-To automatically use the latest version, you can subscribe to the Hohlbein update site in ImageJ.
-Otherwise, download the latest version from [here](https://github.com/HohlbeinLab/AnalyseDirectionality/releases) and place it in the plugins folder in your FIJI installation folder and restart the application.
+## Installation
 
+This plugin has a ImageJ (Java) and Python part. The ImageJ plugin is easily configured to run the full stack, but either part can be used seperately.
+
+### ImageJ
+To automatically use the latest version, you can subscribe to the Hohlbein update site in ImageJ.
+Otherwise, download the latest version jar from [here](https://github.com/HohlbeinLab/AnalyseDirectionality/releases) and place it in the plugins folder in your FIJI installation folder and restart the application.
+
+### Python
+
+Download the python script from [here](https://github.com/HohlbeinLab/AnalyseDirectionality/releases) and place this in a folder. More folders and files will be written here, so recommended is that the folder is empty (besides the script).
+
+In the ImageJ plugin, you can put the path to the folder containing the `gaussian_order.py` script in the script path box, and your preferred python version in the py box. This will link them together.
+
+This python install must include the following packages: `matplotlib, numpy, scipy, tqdm, openpyxl, astropy`.
+You can install them using the following python command: `python.exe -m pip install matplotlib numpy scipy tqdm openpyxl astropy`
+
+ - This does assume your python installation is `python.exe`. Replace if you are using a differeny path
 
 <details>
 <summary>Plugin Overview</summary>
@@ -169,5 +183,5 @@ Examples:
 </details>
 
 # Citation
-If you use this software for your paper, please cite [Rotated Fourier transform (RFT) enables the quantification of anisotropic structure in high-moisture plant-protein extrudates](). doi.
+If you use this software for your paper, please cite [Rotated Fourier transform (RFT) enables the quantification of anisotropic structure in high-moisture plant-protein extrudates](). doi:TBD.
 

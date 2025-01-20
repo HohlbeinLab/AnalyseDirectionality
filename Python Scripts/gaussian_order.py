@@ -550,6 +550,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         ax1.set_ylabel("Intensity Data")
         ax2.set_ylabel("Intensity Binned Angles")
         ax1.set_xlabel("angle (°)")
+        plt.tight_layout()
         plt.savefig(os.path.join(results_path, f"{filename}_all_data.{args.image_format}"))
         if args.show_graph: fig.show()
 
@@ -738,7 +739,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
             fig, axes = plt.subplots(len(neigh_sizes) if len(neigh_sizes) > 1 else 2,
                                      len(labels) if ang != "all" else len(labels_all), dpi=400,
                                      figsize=(
-                                         6.4 * 2.5 * (1.4 if ang != "all" else 0.7), 4.8 * 2 * len(neigh_sizes) / 6))
+                                         6.4 * 1.25 * (1.4 if ang != "all" else 0.7), 4.8 * 1 * len(neigh_sizes) / 6))
             fig.text(0.015, 0.5, f"Angle\n{ang}", fontsize=14)
             text = [f"{ang}: Neighbourhood size "] + flatten(
                 [["mean " + lbl, "std " + lbl] for lbl in (labels if ang != "all" else labels_all)])
@@ -831,7 +832,7 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
                 stats_file.write("\n")
 
 
-            fig.tight_layout()
+            plt.tight_layout()
             plt.savefig(os.path.join(results_path, f"{filename}_order_{ang}.{args.image_format}"))
             if args.show_graph:
                 plt.show(block=False)
@@ -880,7 +881,8 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         excel_path =os.path.join(".", "results", args.core_path if args.core_path else filename,
                                      f"{os.path.basename(args.core_path) if args.core_path and len(filepaths)>1 else filename}_overview.xlsx")
     excel_book.save(excel_path)
-    if not args.IDE and args.show_graph: plt.show()
+
     print("Saving results to", excel_path)
+    if not args.IDE and args.show_graph: plt.show()
 if __name__ == "__main__":
     run()

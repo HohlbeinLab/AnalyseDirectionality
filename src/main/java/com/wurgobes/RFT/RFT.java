@@ -309,6 +309,9 @@ public class RFT<T extends RealType<T>> implements Command {
 
     public void python(RFTParameters params){
         logService.info("Running Python");
+        if (params.pythonPath == null){
+            logService.info("Please set the path to a python installation in the settings pane under python path.");
+        }
         if (!params.pythonPath.contains("py")){
             logService.info("Could not find Python at " + params.pythonPath);
             return;
@@ -317,11 +320,11 @@ public class RFT<T extends RealType<T>> implements Command {
         try {
             scriptPath = Paths.get(params.scriptPath, "gaussian_order.py");
         } catch (Exception e) {
-            logService.info("Could not find Script at " + params.scriptPath);
+            logService.info("Script Path is not set. Please set the path to gaussian_order.py in the settings pane under script path");
             return;
         }
         if (! new File(scriptPath.toString()).exists()){
-            logService.info("Could not find Script at " + scriptPath);
+            logService.info("Could not find Script at " + params.scriptPath + ". Please install the gaussian_order.py script from https://github.com/HohlbeinLab/AnalyseDirectionality");
             return;
         }
         if (! new File(save_path.toString()).exists()){
@@ -331,9 +334,9 @@ public class RFT<T extends RealType<T>> implements Command {
         try {
             ProcessBuilder pb;
             if (params.showGraphs)
-                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString(), "-show_graph" , "-c", params.save_string, (params.python_arguments + "-a").trim(), "window" + params.window + "_" + imp.getShortTitle(), params.python_arguments);
+                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString(), "-show_graph" , "-c", params.save_string, (params.python_arguments+"-a").trim(), "-f", "window" + params.window + "_" + imp.getShortTitle());
             else
-                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString() , "-c", params.save_string, (params.python_arguments+"-a").trim(), "window" + params.window + "_" + imp.getShortTitle());
+                pb = new ProcessBuilder(params.pythonPath, scriptPath.toString() , "-c", params.save_string, (params.python_arguments+"-a").trim(), "-f", "window" + params.window + "_" + imp.getShortTitle());
             pb.redirectErrorStream(true);
             Process pc = pb.start();
             BufferedReader pythonInput = new BufferedReader(new InputStreamReader(pc.getInputStream()));
