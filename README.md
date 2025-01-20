@@ -28,9 +28,7 @@ Analysis of Textured Vegetable Protein:
 |Input image          |  Vector Overlay|
 |:-------------------------:|:-------------------------:|
 |![TVP](image-1.png) |  ![TVP-vectors](image-3.png)|
-|:-------------------------:|:-------------------------:|
 |Anglular Overview | WOP Overview|
-|:-------------------------: | :-------------------------:|
 |![Angular Overview](image-4.png) | ![WOP Overview](image-5.png)|
 
 Mean WOP value of this image is 0.47, which indicates a highly structured image.
