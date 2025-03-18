@@ -391,10 +391,11 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
 
     if args.IDE: # change defaults if needed
         args.testing = 0
-        args.show_graph = True
-        args.core_path = r""
-        #args.filenames = "all"
-        args.filenames = ["window100_coronal_top_A_crop", "window300_coronal_top_A_crop"]
+        args.show_graph = False
+        args.core_path = r"D:\Data\2025_KatjaDeadstopPaper\results\input"
+        args.filenames = "all"
+        absolute=True
+        #args.filenames = ["window100_coronal_top_A_crop", "window300_coronal_top_A_crop"]
 
 
     if max_neighbourhood is not None:

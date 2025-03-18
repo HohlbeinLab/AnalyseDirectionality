@@ -196,7 +196,9 @@ public class RFT<T extends RealType<T>> implements Command {
         if(params.window % 2 == 0)
             params.window += 1;
 
-        setupImage();
+        if(!params.scanning_range)
+            setupImage();
+
         //Non stack version for now
         if(false && imp.hasImageStack()){
             ImageStack input = imp.getStack();
@@ -286,6 +288,8 @@ public class RFT<T extends RealType<T>> implements Command {
     }
 
     public void scanWindow(RFTParameters params){
+        setupImage();
+        logService.info("Performing scan: " + params.start + ":" + params.step + ":" + params.end + " on " + imp.getTitle());
         params.scanning_range = Boolean.TRUE;
         ImageStack angle_stack = null;
         for(int i = params.start; i <= params.end; i+=params.step){

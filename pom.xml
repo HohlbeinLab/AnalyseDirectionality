@@ -9,12 +9,12 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>39.0.0</version>
+		<version>40.0.0</version>
 	</parent>
 
 	<groupId>com.wurgobes</groupId>
 	<artifactId>RFT</artifactId>
-	<version>1.0</version>
+	<version>1.1</version>
 
 
 	<name>Rotated Fourier Transform</name>
