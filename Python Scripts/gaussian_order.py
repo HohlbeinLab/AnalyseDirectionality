@@ -21,12 +21,12 @@ import argparse
 class FittingClass:
     """
     Class structure has been utilised to support multithreading more efficiently
-    Without this implementation a naive approach would mean heavy slowdown for small samples
+    Without this implementation, a naive approach would mean heavy slowdown for small samples
     The class takes in a set of constants that are used to define the x-axis angles
     as well as certain fitting parameters.
     """
 
-    def __init__(self, RFT, angles, p_per_a, en, st, pts, prominence, min_width, min_distance, max_gausses=4, plot=False):
+    def __init__(self, angles, p_per_a, en, st, pts, prominence, min_width, min_distance, max_gausses=4, plot=False):
         self.min_value = None
         self.arr = None
         self.row_idx = None
@@ -42,12 +42,12 @@ class FittingClass:
         self.min_distance = min_distance
 
     def fit_gaussian(self) -> tuple:
-        ax_plot = guass_fig = ax_residual = None
+        ax_plot = gauss_fig = ax_residual = None
 
         if self.plot:
-            guass_fig = plt.figure(1)
-            ax_plot = guass_fig.add_axes((.1, .3, .8, .6))
-            ax_residual = guass_fig.add_axes((.1, .1, .8, .2))
+            gauss_fig = plt.figure(1)
+            ax_plot = gauss_fig.add_axes((.1, .3, .8, .6))
+            ax_residual = gauss_fig.add_axes((.1, .1, .8, .2))
 
         gauss_offset = np.argmin(self.arr)
         rolled_arr = np.roll(self.arr, -gauss_offset)
@@ -103,7 +103,7 @@ class FittingClass:
             residuals = sum_fit - self.arr
 
             if self.plot:
-
+                #pass
                 ax_residual.plot(self.angles, residuals)
                 for i in range(0, len(params), 3):
                     ax_plot.plot(self.angles, gauss(self.angles, *params[i:i + 3]), 'r-')
@@ -130,7 +130,7 @@ class FittingClass:
             ax_plot.set_title(f"i: {self.row_idx}")
             ax_plot.stairs(self.arr, np.append(self.angles, self.angles[-1] * 2 - self.angles[-2]), color='k',
                            label="data")
-            #ax_plot.plot(angles, rolled_arr, c='b', label="rolled")
+            #ax_plot.plot(self.angles, rolled_arr, c='b', label="rolled")
             ax_residual.set_xlabel("Angle (°)")
             ax_plot.set_ylabel("Intensity (a.u)")
             ax_plot.scatter(self.angles[(peaks + gauss_offset) % len(self.angles)], rolled_arr[peaks], c="r",
@@ -141,7 +141,9 @@ class FittingClass:
             ax_plot.set_xticklabels([])
             ax_residual.set_xlim(ax_plot.get_xlim())
             # ax_plot.set_ylim([0, 1])
-            guass_fig.show()
+            gauss_fig.savefig("testing.svg")
+            gauss_fig.show()
+
 
         if type(params) is bool:
             return [[np.nan, np.nan, np.nan]], [[np.nan, np.nan, np.nan]], np.nan, np.nan
@@ -344,7 +346,8 @@ def visualise_fit(visualise_instance: FittingClass, RFT, row: int):
         return visualise_instance.fit((RFT[8:], row, RFT[5]))
 
 def characteristic_size(mean_std: float, window_size: int):
-    return (window_size*np.power(mean_std-0.86, 1/1.54))/7.20
+    return window_size/(0.4+24.16/(1+np.power(mean_std/0.91, 1.54)))
+    #return window_size/(0.91*(np.power((24.16/(ppw-0.4))-1,1/1.54)))
 
 def prepare_parser(parser):
     parser.add_argument("-match_angle", help="Range of angles that get merged", type=float, default=35.0)
@@ -392,9 +395,11 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
     if args.IDE: # change defaults if needed
         args.testing = 0
         args.show_graph = False
+        args.no_recalculation = True
+        #args.core_path = "400rectangle"
         args.core_path = r"D:\Data\2025_KatjaDeadstopPaper\results\input"
         args.filenames = "all"
-        absolute=True
+        args.absolute=True
         #args.filenames = ["window100_coronal_top_A_crop", "window300_coronal_top_A_crop"]
 
 
@@ -512,11 +517,11 @@ def run(argument_string = "", max_neighbourhood=None, filter_edges=None, promine
         offset = np.argmin(all_data)
         rolled_all = np.roll(all_data, -offset)
         main_peaks, all_details = find_peaks(rolled_all, prominence=[0.10], distance=10)
-        fitting_class_instance = FittingClass(RFT=RFT, angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts, prominence=args.prominence, min_width=args.min_peak_width, min_distance=args.min_distance)
+        fitting_class_instance = FittingClass(angles=angles, p_per_a=p_per_a, en=en, st=st, pts=pts, prominence=args.prominence, min_width=args.min_peak_width, min_distance=args.min_distance)
 
         pickle_filename = os.path.join(pickle_path, f"{filename}.pickle")
 
-        if os.path.isfile(pickle_filename) and args.no_recalculation:
+        if os.path.isfile(pickle_filename) and args.no_recalculation and not testing:
             with open(pickle_filename, 'rb') as pickle_file:
                 results = pickle.load(pickle_file)
                 print(rf"Loaded {pickle_filename} with {len(results)} rows")

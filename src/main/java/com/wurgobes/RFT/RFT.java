@@ -314,25 +314,30 @@ public class RFT<T extends RealType<T>> implements Command {
     public void python(RFTParameters params){
         logService.info("Running Python");
         if (params.pythonPath == null){
-            logService.info("Please set the path to a python installation in the settings pane under python path.");
+            logService.error("Please set the path to a python installation in the settings pane under python path.");
         }
         if (!params.pythonPath.contains("py")){
-            logService.info("Could not find Python at " + params.pythonPath);
+            logService.error("Could not find Python at " + params.pythonPath);
+            return;
+        }
+
+        if (save_path == null){
+            logService.error("Please set the path to the save directory in the settings pane under save path.");
             return;
         }
         Path scriptPath;
         try {
             scriptPath = Paths.get(params.scriptPath, "gaussian_order.py");
         } catch (Exception e) {
-            logService.info("Script Path is not set. Please set the path to gaussian_order.py in the settings pane under script path");
+            logService.error("Script Path is not set. Please set the path to gaussian_order.py in the settings pane under script path");
             return;
         }
         if (! new File(scriptPath.toString()).exists()){
-            logService.info("Could not find Script at " + params.scriptPath + ". Please install the gaussian_order.py script from https://github.com/HohlbeinLab/AnalyseDirectionality");
+            logService.error("Could not find Script at " + params.scriptPath + ". Please install the gaussian_order.py script from https://github.com/HohlbeinLab/AnalyseDirectionality");
             return;
         }
         if (! new File(save_path.toString()).exists()){
-            logService.info("Could not find csv at " + scriptPath);
+            logService.error("Could not find csv at " + scriptPath);
             return;
         }
         try {
@@ -350,7 +355,6 @@ public class RFT<T extends RealType<T>> implements Command {
                 while ((s = pythonInput.readLine()) != null) {
                     logService.info("[Python] " + s);
                 }
-
             }
 
         }

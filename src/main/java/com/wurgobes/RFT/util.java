@@ -190,7 +190,7 @@ public class util {
     private static List<Double> getMidPoints(Point center, double sidelength, double angle){
         return Arrays.asList(
                 (center.getIntPosition(0) + Math.sin((angle-0.5) * Math.PI) * sidelength/2),
-                (center.getIntPosition(1) + Math.cos((angle-0.5)* Math.PI) * sidelength/2),
+                (center.getIntPosition(1) + Math.cos((angle-0.5) * Math.PI) * sidelength/2),
                 (center.getIntPosition(0) + Math.sin((angle+0.5) * Math.PI) * sidelength/2),
                 (center.getIntPosition(1) + Math.cos((angle+0.5) * Math.PI) * sidelength/2)
         );
