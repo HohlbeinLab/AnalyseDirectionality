@@ -112,6 +112,10 @@ public class RFT<T extends RealType<T>> implements Command {
 
     @Override
     public void run() {
+        if (!IJ.versionLessThan("1.54")) {
+            logService.error("This plugin requires ImageJ 1.54 or higher.");
+            return;
+        }
         logService.info("Loaded RFT V1.0");
         params.macro_mode = false;
         macro_params = null;
