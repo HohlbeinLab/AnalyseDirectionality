@@ -2,6 +2,11 @@
 
 This package encompasses both the ImageJ plugin RFT, and the scripts used to further process the data.
 
+## ImageJ
+
+Please download the latest version of ImageJ from https://imagej.net/software/fiji/downloads
+This software does not work with ImageJ versions older than 1.54.
+
 ## Installation
 
 This plugin has a ImageJ (Java) and Python part. The ImageJ plugin is easily configured to run the full stack, but either part can be used seperately.
