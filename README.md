@@ -201,5 +201,5 @@ Examples:
 </details>
 
 # Citation
-If you use this software for your paper, please cite [Rotated Fourier transform (RFT) enables the quantification of anisotropic structure in high-moisture plant-protein extrudates]([https://doi.org/10.26434/chemrxiv-2025-g0rcx](https://doi.org/10.1016/j.foostr.2025.100437)).
+If you use this software for your paper, please cite [Rotated Fourier transform (RFT) enables the quantification of anisotropic structure in high-moisture plant-protein extrudates](https://doi.org/10.1016/j.foostr.2025.100437).
 
